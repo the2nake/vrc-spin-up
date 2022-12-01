@@ -10,12 +10,12 @@
 // ---- START VEXCODE CONFIGURED DEVICES ----
 // Robot Configuration:
 // [Name]               [Type]        [Port(s)]
-// Vision1              vision        1
-// RollerMotor          motor         2
-// Drivetrain           drivetrain    3, 4, 5, 6, 8
-// Controller1          controller
-// WindUpMotor          motor         7
-// PneumaticOut         digital_out   A
+// Vision1              vision        1               
+// RollerMotor          motor         2               
+// Drivetrain           drivetrain    3, 4, 5, 6, 8   
+// Controller1          controller                    
+// WindUpMotor          motor         7               
+// PneumaticOut         digital_out   A               
 // ---- END VEXCODE CONFIGURED DEVICES ----
 
 #include "vex.h"
@@ -62,11 +62,12 @@ void pre_auton(void) {
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
   RollerMotor.setVelocity(100, percent);
-  Drivetrain.setDriveVelocity(60, percent);
+  Drivetrain.setDriveVelocity(75, percent);
   Drivetrain.setTurnVelocity(50, percent);
   WindUpMotor.setVelocity(34, percent);
   WindUpMotor.setStopping(hold);
   WindUpMotor.stop();
+  
 }
 
 /*---------------------------------------------------------------------------*/
@@ -102,50 +103,24 @@ void spinRollerRed() { spinRoller(REDTEAM); }
 
 void spinRollerBlue() { spinRoller(BLUETEAM); }
 
-void expand() { PneumaticOut.set(true); }
-
 void autonomous(void) {
-  bool startingOnRoller = false;
-  bool redColour = false;
-
-  if (startingOnRoller) {
-    if (redColour) {
-      spinRollerRed();
-    } else {
-      spinRollerBlue();
-    }
-    Drivetrain.driveFor(forward, 150, mm);
-    Drivetrain.turnFor(right, 90, degrees);
-    Drivetrain.driveFor(forward, 1340, mm);
-
-  } else {
-    Drivetrain.driveFor(forward, 170, mm);
-    Drivetrain.turnFor(left, 90, degrees);
-    Drivetrain.driveFor(reverse, 640, mm);
-    Drivetrain.turnFor(right, 90, degrees);
-    Drivetrain.driveFor(reverse, 100, mm);
-    if (redColour) {
-      spinRollerRed();
-    } else {
-      spinRollerBlue();
-    }
-  }
-}
-
-void autonomousSkills() {
-
   spinRollerRed();
-  Drivetrain.driveFor(forward, 650, mm);
-  Drivetrain.turnFor(left, 90, degrees);
+  Drivetrain.driveFor(forward, 500, mm);
+  Drivetrain.turnFor(right, 90, degrees);
   Drivetrain.driveFor(reverse, 650, mm);
   spinRollerRed();
   Drivetrain.driveFor(forward, 650, mm);
-  Drivetrain.turnFor(right, 45, degrees);
+  Drivetrain.turnFor(left, 45, degrees);
   Drivetrain.driveFor(forward, 2880, mm);
-  Drivetrain.turnFor(right, 45, degrees);
+
   Drivetrain.driveFor(forward, 100, mm);
+  Drivetrain.driveFor(reverse, 100, mm);
+
+  Drivetrain.turnFor(right, 45, degrees);
+  Drivetrain.driveFor(reverse, 100, mm);
   Drivetrain.turnFor(right, 90, degrees);
   Drivetrain.driveFor(reverse, 200, mm);
+
   spinRollerRed();
   Drivetrain.driveFor(forward, 650, mm);
   Drivetrain.turnFor(right, 90, degrees);
@@ -153,7 +128,8 @@ void autonomousSkills() {
   spinRollerRed();
   Drivetrain.driveFor(forward, 650, mm);
   Drivetrain.driveFor(reverse, 100, mm);
-  Drivetrain.turnFor(left, 45, degrees);
+  Drivetrain.turnFor(left, 40, degrees);
+  PneumaticOut.set(true);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -170,12 +146,9 @@ void unwindString() { WindUpMotor.spin(reverse); }
 
 void usercontrol(void) {
   // User control code here, inside the loop
-  Controller1.ButtonX.pressed(spinRollerRed);
-  Controller1.ButtonY.pressed(spinRollerBlue);
-  Controller1.ButtonB.pressed(expand);
+  Controller1.ButtonX.pressed(spinRollerBlue);
   Controller1.ButtonL1.pressed(spinRollerManualFwd);
   Controller1.ButtonL2.pressed(spinRollerManualRev);
-  // Controller1.ButtonA.pressed(autonomousSkills);
 
   while (1) {
     WindUpMotor.stop();
