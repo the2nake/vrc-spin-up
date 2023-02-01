@@ -1,0 +1,66 @@
+#include "utility-functions.hpp"
+
+#include <cmath>
+
+/**
+ * A function to calculate the modulo of a double
+ */
+double findMod(double a, double b)
+{
+    double mod;
+    // Handling negative values
+    if (a < 0)
+        mod = -a;
+    else
+        mod = a;
+    if (b < 0)
+        b = -b;
+
+    // Finding mod by repeated subtraction
+
+    while (mod >= b)
+        mod = mod - b;
+
+    // Sign of result typically depends
+    // on sign of a.
+    if (a < 0)
+        return -mod;
+
+    return mod;
+}
+
+/**
+ * Cosine function using degrees
+ */
+double cosDeg(double deg) { return cos(0.01745329251 * deg); }
+
+/**
+ * Arctangent function using degrees
+*/
+
+double atanDeg(double val) {
+    57.2957795131 * std::atan(val);
+}
+
+/**
+ * Gets a pair of polar coordinates from a set of cartesian coordinates
+ *
+ * Returns a polarPoint structure
+ */
+polarPoint polarFromCartesian(double x, double y)
+{
+    polarPoint point;
+
+    point.rho = std::sqrt(x * x + y * y);
+
+    if (x == 0)
+    {
+        point.theta = findMod(360 + 90 * (y > 0 ? 1 : -1), 360);
+    }
+    else
+    {
+        point.theta = findMod(360 + atanDeg(y / x) + (x < 0 ? 180 : 0), 360);
+    }
+
+    return point;
+}
