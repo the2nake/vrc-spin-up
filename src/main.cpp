@@ -157,7 +157,7 @@ void opcontrol()
 		if (controller.get_digital(DIGITAL_R1))
 		{
 			intake->move(127.0 * intakeSpeed);
-		} else if (controller.get_digital(DIGITAL_R2) {
+		} else if (controller.get_digital(DIGITAL_R2)) {
 			intake->move(-127.0 * intakeSpeed);
 		} else {
 			intake->brake();
