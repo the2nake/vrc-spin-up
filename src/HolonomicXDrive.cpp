@@ -55,11 +55,6 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
     double vFR = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) - dRot * mRot * mRot / (mTrans + mRot);
     double vBL = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) + dRot * mRot * mRot / (mTrans + mRot);
 
-    pros::lcd::set_text(3, std::to_string(vFL));
-    pros::lcd::set_text(4, std::to_string(vFR));
-    pros::lcd::set_text(5, std::to_string(vBR));
-    pros::lcd::set_text(6, std::to_string(vBL));
-
     this->mFL->move(127.0 * vFL);
     this->mFR->move(127.0 * vFR);
     this->mBR->move(127.0 * vBR);
