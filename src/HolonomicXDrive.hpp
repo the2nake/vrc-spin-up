@@ -17,7 +17,7 @@ public:
 
     void drive(double translateVelocity, double translateHeading);
     void driveAndTurn(double translateVelocity, double translateHeading, double rotationVelocity);
-    void driveAndTurnToHeading(double translateVelocity, double translateHeading, double targetHeading);
+    
     void brake();
 
 private:

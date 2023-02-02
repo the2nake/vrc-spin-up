@@ -31,7 +31,6 @@ void on_center_button()
 /**
  * A convenient place to store all variables and motor access points
  */
-
 namespace syndicated
 {
 	pros::Imu *imuSensor;
@@ -130,37 +129,45 @@ void opcontrol()
 		auto cycleStart = std::chrono::high_resolution_clock::now();
 
 		double crx = controller.get_analog(ANALOG_RIGHT_X) / 127.0;
-		double cry = controller.get_analog(ANALOG_RIGHT_X) / 127.0;
+		double cry = controller.get_analog(ANALOG_RIGHT_Y) / 127.0;
 		double clx = controller.get_analog(ANALOG_LEFT_X) / 127.0;
 		double cly = controller.get_analog(ANALOG_LEFT_Y) / 127.0;
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
+		translationVector.rho = std::min(translationVector.rho, 1.0);
 
 		if (std::abs(crx) + std::abs(cry) < 0.01)
 		{
-			if (std::abs(cly) > 0.01)
+			if (std::abs(cly) < 0.01 && std::abs(clx) < 0.01)
 			{
-				drivetrain->driveAndTurn(cly, 0, clx);
+				drivetrain->brake();
 			}
 			else
 			{
-				drivetrain->brake();
-				pros::Motor a(1);
-				a.brake();
+				drivetrain->driveAndTurn(cly, imuSensor->get_heading(), clx / 2.0);
 			}
 		}
 		else
 		{
-			drivetrain->driveAndTurn(translationVector.rho, translationVector.theta, clx);
+			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx / 2.0); // clx / 2.0
 		}
 
 		if (controller.get_digital(DIGITAL_R1))
 		{
 			intake->move(127.0 * intakeSpeed);
-		} else if (controller.get_digital(DIGITAL_R2)) {
+		}
+		else if (controller.get_digital(DIGITAL_R2))
+		{
 			intake->move(-127.0 * intakeSpeed);
-		} else {
+		}
+		else
+		{
 			intake->brake();
+		}
+
+		if (controller.get_digital(DIGITAL_B))
+		{
+			imuSensor->set_heading(0);
 		}
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();

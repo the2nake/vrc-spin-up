@@ -7,8 +7,8 @@
 HolonomicXDrive::HolonomicXDrive(int portFrontLeft, int portFrontRight, int portBackRight, int portBackLeft, int portImu)
 {
     this->mFL = new pros::Motor(portFrontLeft);
-    this->mFR = new pros::Motor(portFrontRight);
-    this->mBR = new pros::Motor(portBackRight);
+    this->mFR = new pros::Motor(portFrontRight, 1);
+    this->mBR = new pros::Motor(portBackRight, 1);
     this->mBL = new pros::Motor(portBackLeft);
 
     this->imu = new pros::Imu(portImu);
@@ -24,53 +24,46 @@ void HolonomicXDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
     }
 }
 
-void HolonomicXDrive::drive(double vTrans, double aTrans)
+void HolonomicXDrive::drive(double vTrans, double hTrans)
 {
-    driveAndTurn(vTrans, aTrans, 0);
+    driveAndTurn(vTrans, hTrans, 0);
 }
 
-void HolonomicXDrive::driveAndTurn(double vTrans, double aTrans, double vRot)
+void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
 {
-    double mTrans = vTrans;
-    if (vTrans < 0)
+    if (vTrans == 0 && vRot == 0)
     {
-        mTrans = 0 - mTrans;
-        aTrans += 180;
+        return;
     }
 
-    double dRot = !(vRot < 0);
-    double mRot = std::abs(vRot / 2.0); // scale rotation down
+    double mTrans = std::abs(vTrans);
 
-    double theta = findMod(360 + 90 - aTrans, 360);
-    theta = findMod(theta - imu->get_heading() + 360, 360);
+    double dRot = (vRot < 0 ? -1 : 1);
+    double mRot = std::abs(vRot);
 
-    double vTPosSlope = cosDeg(findMod(405 - theta, 360)) * mTrans * mTrans;
-    double vTNegSlope = cosDeg(findMod(675 - theta, 360)) * mTrans * mTrans;
-    double scaledVRot = dRot * mRot * mRot;
+    double theta;
+    if (vTrans < 0)
+    {
+        theta = findMod(180 + hTrans, 360);
+    } else {
+        theta = findMod(hTrans, 360);
+    }
+    theta = findMod(theta - imu->get_heading(), 360);
 
-    double vFL = vTPosSlope / (mTrans + mRot) + scaledVRot / (mTrans + mRot);
-    double vFR = vTNegSlope / (mTrans + mRot) - scaledVRot / (mTrans + mRot);
-    double vBR = vTPosSlope / (mTrans + mRot) - scaledVRot / (mTrans + mRot);
-    double vBL = vTNegSlope / (mTrans + mRot) + scaledVRot / (mTrans + mRot);
+    double vFL = cosDeg(405 - theta) * mTrans * mTrans / (mTrans + mRot) + dRot * mRot * mRot / (mTrans + mRot);
+    double vBR = cosDeg(405 - theta) * mTrans * mTrans / (mTrans + mRot) - dRot * mRot * mRot / (mTrans + mRot);
+    double vFR = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) - dRot * mRot * mRot / (mTrans + mRot);
+    double vBL = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) + dRot * mRot * mRot / (mTrans + mRot);
+
+    pros::lcd::set_text(3, std::to_string(vFL));
+    pros::lcd::set_text(4, std::to_string(vFR));
+    pros::lcd::set_text(5, std::to_string(vBR));
+    pros::lcd::set_text(6, std::to_string(vBL));
 
     this->mFL->move(127.0 * vFL);
     this->mFR->move(127.0 * vFR);
     this->mBR->move(127.0 * vBR);
     this->mBL->move(127.0 * vBL);
-}
-
-void HolonomicXDrive::driveAndTurnToHeading(double vTrans, double aTrans, double heading)
-{
-    heading = findMod(360 + heading, 360);
-    double deltaThetaLeft = findMod(360 + this->imu->get_heading() - heading, 360);
-    double deltaThetaRight = findMod(360 - deltaThetaLeft, 360);
-
-    if (deltaThetaLeft < deltaThetaRight)
-    {
-        driveAndTurn(vTrans, aTrans, -0.75*deltaThetaLeft/180.0);
-    } else {
-        driveAndTurn(vTrans, aTrans, 0.75*deltaThetaRight/180.0);
-    }
 }
 
 void HolonomicXDrive::brake()

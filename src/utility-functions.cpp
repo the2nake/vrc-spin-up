@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "main.h"
+
 /**
  * A function to calculate the modulo of a double
  */
@@ -32,14 +34,18 @@ double findMod(double a, double b)
 /**
  * Cosine function using degrees
  */
-double cosDeg(double deg) { return cos(0.01745329251 * deg); }
+double cosDeg(double deg)
+{
+    return std::cos(0.01745329251 * deg);
+}
 
 /**
  * Arctangent function using degrees
-*/
+ */
 
-double atanDeg(double val) {
-    57.2957795131 * std::atan(val);
+double atanDeg(double val)
+{
+    return 57.2957795131 * std::atan(val);
 }
 
 /**
@@ -49,13 +55,20 @@ double atanDeg(double val) {
  */
 polarPoint polarFromCartesian(double x, double y)
 {
-    polarPoint point;
+    polarPoint point{0, 0};
 
     point.rho = std::sqrt(x * x + y * y);
 
     if (x == 0)
     {
-        point.theta = findMod(360 + 90 * (y > 0 ? 1 : -1), 360);
+        if (y == 0)
+        {
+            point.theta = 0;
+        }
+        else
+        {
+            point.theta = 90 * (y > 0 ? 1 : -1);
+        }
     }
     else
     {
