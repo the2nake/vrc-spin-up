@@ -61,13 +61,13 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
 
     double velocities[] = {vFL, vFR, vBR, vBL};
 
-    double maxVelocity = *std::max_element(std::begin(velocities), std::end(velocities));
-    double targetVelocity = std::min(vTrans + vRot, 1.0);
+    double maxSpeed = std::abs(*std::max_element(std::begin(velocities), std::end(velocities)));
+    double targetSpeed = std::min(mTrans + mRot, 1.0);
 
-    vFL *= targetVelocity / maxVelocity;
-    vFR *= targetVelocity / maxVelocity;
-    vBR *= targetVelocity / maxVelocity;
-    vBL *= targetVelocity / maxVelocity;
+    vFL *= targetSpeed / maxSpeed;
+    vFR *= targetSpeed / maxSpeed;
+    vBR *= targetSpeed / maxSpeed;
+    vBL *= targetSpeed / maxSpeed;
 
     this->mFL->move(127.0 * vFL);
     this->mFR->move(127.0 * vFR);
