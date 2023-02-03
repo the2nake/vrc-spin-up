@@ -28,7 +28,10 @@ struct polarPoint
 
 /**
  * Gets a pair of polar coordinates from a set of cartesian coordinates
- *
- * Returns a polarPoint structure
+ * 
+ * @param x Cartesian x-coordinate
+ * @param y Cartesian y-coordinate
+ * 
+ * @returns Returns a polarPoint
  */
 polarPoint polarFromCartesian(double x, double y);
