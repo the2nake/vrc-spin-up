@@ -45,7 +45,9 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
     if (vTrans < 0)
     {
         theta = findMod(180 + hTrans, 360);
-    } else {
+    }
+    else
+    {
         theta = findMod(hTrans, 360);
     }
     theta = findMod(theta - imu->get_heading(), 360);
@@ -54,6 +56,18 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
     double vBR = cosDeg(405 - theta) * mTrans * mTrans / (mTrans + mRot) - dRot * mRot * mRot / (mTrans + mRot);
     double vFR = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) - dRot * mRot * mRot / (mTrans + mRot);
     double vBL = cosDeg(675 - theta) * mTrans * mTrans / (mTrans + mRot) + dRot * mRot * mRot / (mTrans + mRot);
+
+    // if max(vFL, vBR, vFR, vBL) < 1, multiply each of them by 1/max(vFL, vBR, vFR, vBL
+
+    double velocities[] = {vFL, vFR, vBR, vBL};
+
+    double maxVelocity = *std::max_element(std::begin(velocities), std::end(velocities));
+    double targetVelocity = std::min(vTrans + vRot, 1.0);
+
+    vFL *= targetVelocity / maxVelocity;
+    vFR *= targetVelocity / maxVelocity;
+    vBR *= targetVelocity / maxVelocity;
+    vBL *= targetVelocity / maxVelocity;
 
     this->mFL->move(127.0 * vFL);
     this->mFR->move(127.0 * vFR);
