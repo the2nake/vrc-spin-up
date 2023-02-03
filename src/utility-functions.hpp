@@ -6,6 +6,11 @@
 double findMod(double a, double b);
 
 /**
+ * Sine function using degrees
+ */
+double sinDeg(double deg);
+
+/**
  * Cosine function using degrees
  */
 double cosDeg(double deg);

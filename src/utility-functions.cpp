@@ -30,6 +30,13 @@ double findMod(double a, double b)
 
     return mod;
 }
+/**
+ * Sine function using degrees
+ */
+double sinDeg(double deg)
+{
+    return std::sin(0.01745329251 * deg);
+}
 
 /**
  * Cosine function using degrees
