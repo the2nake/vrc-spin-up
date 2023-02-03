@@ -124,6 +124,8 @@ void opcontrol()
 
 	pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
+	double headingToMaintain = imuSensor->get_heading();
+
 	while (true)
 	{
 		auto cycleStart = std::chrono::high_resolution_clock::now();
@@ -136,6 +138,11 @@ void opcontrol()
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
 
+		if (std::abs(clx) < 0.01)
+		{
+			headingToMaintain = imuSensor->get_heading();
+		}
+
 		if (std::abs(crx) + std::abs(cry) < 0.01)
 		{
 			if (std::abs(cly) < 0.01 && std::abs(clx) < 0.01)
@@ -146,6 +153,15 @@ void opcontrol()
 			{
 				drivetrain->driveAndTurn(cly, imuSensor->get_heading(), clx / 2.0);
 			}
+		}
+		else if (std::abs(clx) < 0.01)
+		{
+			double angleToHeadingAnticlockwise = findMod(360 + imuSensor->get_heading() - headingToMaintain, 360);
+			bool shouldTurnAnticlockwise = angleToHeadingAnticlockwise < 180;
+
+			double turnVelocity = (shouldTurnAnticlockwise ? -1 : 1) * 0.5 * (shouldTurnAnticlockwise ? sinDeg(angleToHeadingAnticlockwise / 2.0) : sinDeg(180 - angleToHeadingAnticlockwise / 2.0));
+
+			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, turnVelocity);
 		}
 		else
 		{
