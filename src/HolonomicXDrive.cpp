@@ -16,6 +16,17 @@ HolonomicXDrive::HolonomicXDrive(int portFrontLeft, int portFrontRight, int port
     this->setBrakeMode(MOTOR_BRAKE_BRAKE);
 }
 
+HolonomicXDrive::~HolonomicXDrive()
+{
+    pros::Motor *motors[] = {mFL, mFR, mBR, mBL};
+    for (auto motor : motors)
+    {
+        delete motor;
+    }
+
+    delete imu;
+}
+
 void HolonomicXDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
 {
     for (auto i : {mFL, mFR, mBR, mBL})

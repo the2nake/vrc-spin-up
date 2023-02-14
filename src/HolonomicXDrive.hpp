@@ -11,6 +11,7 @@ class HolonomicXDrive
 
 public:
     HolonomicXDrive() {}
+    ~HolonomicXDrive();
 
     /**
      * Creates a HolonomicXDrive object that controls an X Drive
