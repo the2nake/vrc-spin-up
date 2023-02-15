@@ -66,7 +66,7 @@ void initialize()
 	indexer->set_gearing(MOTOR_GEAR_200);
 	indexer->set_brake_mode(MOTOR_BRAKE_HOLD);
 	indexer->set_encoder_units(MOTOR_ENCODER_DEGREES);
-	indexerSpeed = 0.4;
+	indexerSpeed = 0.5;
 
 	indexer->move_velocity(200.0 * indexerSpeed);
 	pros::delay(200);
