@@ -1,43 +1,36 @@
 #include "main.h"
 
 #include "HolonomicXDrive.hpp"
+#include "MotorGroup.hpp"
 #include "utility-functions.hpp"
 
 #include "portDefinitions.h"
 
 #include <chrono>
 #include <algorithm>
-
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button()
-{
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed)
-	{
-		pros::lcd::set_text(2, "I was pressed!");
-	}
-	else
-	{
-		pros::lcd::clear_line(2);
-	}
-}
+#include <string>
 
 /**
  * A convenient place to store all variables and motor access points
  */
 namespace syndicated
 {
+	pros::Controller *controller;
 	pros::Imu *imuSensor;
+	pros::ADIAnalogIn *indexerLineTracker;
+
 	pros::Motor *intake;
+	pros::Motor *indexer;
+	MotorGroup *flywheel;
 	HolonomicXDrive *drivetrain;
 
 	double intakeSpeed;
+	double flywheelSpeed;	  // overall percentage
+	double flywheelIdleSpeed; // percentage of cross-court shot
+	double indexerSpeed;
+
+	bool shotReady;
+	double timeSinceLastShot;
 };
 
 /**
@@ -50,11 +43,6 @@ void initialize()
 {
 	using namespace syndicated;
 
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
-
-	pros::lcd::register_btn1_cb(on_center_button);
-
 	imuSensor = new pros::Imu(IMU_PORT);
 	imuSensor->reset();
 
@@ -64,10 +52,32 @@ void initialize()
 	}
 
 	drivetrain = new HolonomicXDrive(DRIVE_FL_PORT, DRIVE_FR_PORT, DRIVE_BR_PORT, DRIVE_BL_PORT, IMU_PORT);
+
 	intake = new pros::Motor(INTAKE_PORT);
 	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
-
 	intakeSpeed = 1.0;
+
+	flywheel = new MotorGroup({motorConfiguration{FLYWHEEL_PORT_A, false}, motorConfiguration{FLYWHEEL_PORT_R, true}});
+	flywheel->set_gearing(MOTOR_GEAR_600);
+	flywheelSpeed = 0.7;
+	flywheelIdleSpeed = 0 / flywheelSpeed;
+
+	indexer = new pros::Motor(INDEXER_PORT, 1);
+	indexer->set_gearing(MOTOR_GEAR_200);
+	indexer->set_brake_mode(MOTOR_BRAKE_HOLD);
+	indexer->set_encoder_units(MOTOR_ENCODER_DEGREES);
+	indexerSpeed = 0.4;
+
+	indexer->move_velocity(200.0 * indexerSpeed);
+	pros::delay(200);
+	while (indexer->get_efficiency() > 1)
+	{
+		indexer->move_velocity(200.0 * indexerSpeed);
+		pros::delay(16);
+	}
+	indexer->brake();
+	indexer->tare_position();
+	shotReady = true;
 }
 
 /**
@@ -101,6 +111,78 @@ void competition_initialize() {}
  */
 void autonomous() {}
 
+void handleIntakeControls()
+{
+	using namespace syndicated;
+
+	if (!shotReady)
+	{
+		intake->brake();
+		return;
+	}
+
+	if (controller->get_digital(DIGITAL_R1))
+	{
+		intake->move_velocity(200 * intakeSpeed);
+	}
+	else if (controller->get_digital(DIGITAL_R2))
+	{
+		intake->move(-127.0 * intakeSpeed);
+	}
+	else
+	{
+		intake->brake();
+	}
+}
+
+void handleFlywheelControls()
+{
+	using namespace syndicated;
+
+	if (controller->get_digital(DIGITAL_L2))
+	{
+		flywheel->move_velocity(600 * flywheelSpeed);
+	}
+	else
+	{
+		flywheel->move_velocity(600 * flywheelIdleSpeed * flywheelSpeed);
+	}
+}
+
+void handleImuReset()
+{
+	using namespace syndicated;
+
+	if (controller->get_digital(DIGITAL_B))
+	{
+		imuSensor->set_heading(0);
+	}
+}
+
+void handleIndexer()
+{
+	using namespace syndicated;
+
+	if (std::abs(indexer->get_position()) < 5)
+	{
+		shotReady = true;
+	} else {
+		shotReady = false;
+	}
+
+	if (controller->get_digital(DIGITAL_L1))
+	{
+		indexer->move_velocity(-200 * indexerSpeed);
+	} else if (!shotReady)
+	{
+		indexer->move_velocity(200 * indexerSpeed);
+	} else {
+		indexer->brake();
+	}
+
+	pros::screen::print(TEXT_MEDIUM, 100, 100, std::to_string(indexer->get_efficiency()).c_str());
+}
+
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -122,7 +204,7 @@ void opcontrol()
 	pros::delay(160);
 	double imuDriftPerMsec = (imuSensor->get_heading() - startHeading) / 160.0;
 
-	pros::Controller controller(pros::E_CONTROLLER_MASTER);
+	syndicated::controller = new pros::Controller(pros::E_CONTROLLER_MASTER);
 
 	double headingToMaintain = imuSensor->get_heading();
 
@@ -130,10 +212,10 @@ void opcontrol()
 	{
 		auto cycleStart = std::chrono::high_resolution_clock::now();
 
-		double crx = controller.get_analog(ANALOG_RIGHT_X) / 127.0;
-		double cry = controller.get_analog(ANALOG_RIGHT_Y) / 127.0;
-		double clx = controller.get_analog(ANALOG_LEFT_X) / 127.0;
-		double cly = controller.get_analog(ANALOG_LEFT_Y) / 127.0;
+		double crx = controller->get_analog(ANALOG_RIGHT_X) / 127.0;
+		double cry = controller->get_analog(ANALOG_RIGHT_Y) / 127.0;
+		double clx = controller->get_analog(ANALOG_LEFT_X) / 127.0;
+		double cly = controller->get_analog(ANALOG_LEFT_Y) / 127.0;
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
@@ -151,11 +233,13 @@ void opcontrol()
 			}
 			else
 			{
-				drivetrain->driveAndTurn(cly, imuSensor->get_heading(), clx / 2.0);
+				drivetrain->driveAndTurn(cly, imuSensor->get_heading(), clx);
 			}
 		}
 		else if (std::abs(clx) < 0.01)
 		{
+			// use a PID controller
+
 			double angleToHeadingAnticlockwise = findMod(360 + imuSensor->get_heading() - headingToMaintain, 360);
 			bool shouldTurnAnticlockwise = angleToHeadingAnticlockwise < 180;
 
@@ -165,31 +249,21 @@ void opcontrol()
 		}
 		else
 		{
-			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx / 2.0); // clx / 2.0
+			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
 		}
 
-		if (controller.get_digital(DIGITAL_R1))
-		{
-			intake->move(127.0 * intakeSpeed);
-		}
-		else if (controller.get_digital(DIGITAL_R2))
-		{
-			intake->move(-127.0 * intakeSpeed);
-		}
-		else
-		{
-			intake->brake();
-		}
+		handleIntakeControls();
+		handleFlywheelControls();
+		handleIndexer();
 
-		if (controller.get_digital(DIGITAL_B))
-		{
-			imuSensor->set_heading(0);
-		}
+		handleImuReset();
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();
-		pros::delay(std::max(0.0, 16.0 - cycleTime));
-		double trueTimeElapsed = std::max(cycleTime, 16.0);
+		double targetTime = 16.0;
+		pros::delay(std::max(0.0, targetTime - cycleTime));
+		double trueTimeElapsed = std::max(cycleTime, targetTime);
 		// imu sensor drift correction
 		imuSensor->set_heading(imuSensor->get_heading() - (trueTimeElapsed * imuDriftPerMsec));
+		timeSinceLastShot += trueTimeElapsed;
 	}
 }

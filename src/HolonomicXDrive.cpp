@@ -14,6 +14,11 @@ HolonomicXDrive::HolonomicXDrive(int portFrontLeft, int portFrontRight, int port
     this->imu = new pros::Imu(portImu);
 
     this->setBrakeMode(MOTOR_BRAKE_BRAKE);
+
+    this->mFL->set_gearing(MOTOR_GEAR_200);
+    this->mFR->set_gearing(MOTOR_GEAR_200);
+    this->mBR->set_gearing(MOTOR_GEAR_200);
+    this->mBL->set_gearing(MOTOR_GEAR_200);
 }
 
 HolonomicXDrive::~HolonomicXDrive()
@@ -80,10 +85,10 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
     vBR *= targetSpeed / maxSpeed;
     vBL *= targetSpeed / maxSpeed;
 
-    this->mFL->move(127.0 * vFL);
-    this->mFR->move(127.0 * vFR);
-    this->mBR->move(127.0 * vBR);
-    this->mBL->move(127.0 * vBL);
+    this->mFL->move_velocity(200.0 * vFL);
+    this->mFR->move_velocity(200.0 * vFR);
+    this->mBR->move_velocity(200.0 * vBR);
+    this->mBL->move_velocity(200.0 * vBL);
 }
 
 void HolonomicXDrive::brake()
