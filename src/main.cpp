@@ -27,6 +27,7 @@ namespace syndicated
 	double intakeSpeed;
 	double flywheelSpeed;	  // overall percentage
 	double flywheelIdleSpeed; // percentage of cross-court shot
+	bool flywheelAlwaysOn;
 	double indexerSpeed;
 
 	bool shotReady;
@@ -59,7 +60,7 @@ void initialize()
 
 	flywheel = new MotorGroup({motorConfiguration{FLYWHEEL_PORT_A, false}, motorConfiguration{FLYWHEEL_PORT_R, true}});
 	flywheel->set_gearing(MOTOR_GEAR_600);
-	flywheelSpeed = 0.5;
+	flywheelSpeed = 0.60;
 	flywheelIdleSpeed = 0 / flywheelSpeed;
 
 	indexer = new pros::Motor(INDEXER_PORT, 1);
@@ -78,6 +79,7 @@ void initialize()
 	indexer->brake();
 	indexer->tare_position();
 	shotReady = true;
+	flywheelAlwaysOn = false;
 }
 
 /**
@@ -109,13 +111,14 @@ void competition_initialize() {}
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
-void autonomous() {
+void autonomous()
+{
 	using namespace syndicated;
 
 	drivetrain->drive(0.3, 180);
 
 	intake->move_relative(1.9 * 360.0, 100);
-	
+
 	pros::delay(14000);
 }
 
@@ -141,7 +144,11 @@ void handleFlywheelControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital(DIGITAL_L2))
+	if (controller->get_digital_new_press(DIGITAL_UP)) {
+		flywheelAlwaysOn = !flywheelAlwaysOn;
+	}
+
+	if (controller->get_digital(DIGITAL_L2) || flywheelAlwaysOn)
 	{
 		flywheel->move_velocity(600 * flywheelSpeed);
 	}
@@ -220,6 +227,16 @@ void opcontrol()
 		double cry = controller->get_analog(ANALOG_RIGHT_Y) / 127.0;
 		double clx = controller->get_analog(ANALOG_LEFT_X) / 127.0;
 		double cly = controller->get_analog(ANALOG_LEFT_Y) / 127.0;
+
+		controller->clear();
+		if (flywheelAlwaysOn)
+		{
+			controller->print(0, 0, "Shoot mode: ALWAYS ON");
+		}
+		else
+		{
+			controller->print(0, 0, (std::string("Shoot mode: IDLE at") + std::to_string(flywheelIdleSpeed)).c_str());
+		}
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
