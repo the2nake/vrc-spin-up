@@ -45,6 +45,15 @@ void MotorGroup::set_gearing(pros::motor_gearset_e_t gearset)
     }
 }
 
+void MotorGroup::set_encoder_units(pros::motor_encoder_units_e_t units)
+{
+
+    for (pros::Motor *motor : this->motors)
+    {
+        motor->set_encoder_units(units);
+    }
+}
+
 void MotorGroup::set_brake_mode(pros::motor_brake_mode_e_t mode)
 {
 

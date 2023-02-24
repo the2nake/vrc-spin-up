@@ -59,6 +59,8 @@ void initialize()
 	intakeSpeed = 1.0;
 
 	flywheel = new MotorGroup({motorConfiguration{FLYWHEEL_PORT_A, false}, motorConfiguration{FLYWHEEL_PORT_R, true}});
+	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
+	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
 	flywheelSpeed = 0.60;
 	flywheelIdleSpeed = 0 / flywheelSpeed;
@@ -239,8 +241,8 @@ void opcontrol()
 			controller->print(0, 0, (std::string("Shoot mode: IDLE at") + std::to_string(flywheelIdleSpeed)).c_str());
 		}
 
-		controller->print(1, 0, (std::string("Flywheel Speed: ") + std::to_string(flywheel->get_actual_velocity())).c_str());
-		controller->print(2, 0, (std::string("Flywheel Temp:  ") + std::to_string(flywheel->get_temperature())).c_str());
+		controller->print(1, 0, (std::string("Flywheel RPM:  ") + std::to_string(flywheel->get_actual_velocity())).c_str());
+		controller->print(2, 0, (std::string("Flywheel Temp: ") + std::to_string(flywheel->get_temperature())).c_str());
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);

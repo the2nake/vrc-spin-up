@@ -18,6 +18,7 @@ public:
     void move(int32_t voltage);
     void move_velocity(int32_t velocity);
     void set_gearing(pros::motor_gearset_e_t gearset);
+    void set_encoder_units(pros::motor_encoder_units_e_t units);
     void set_brake_mode(pros::motor_brake_mode_e_t mode);
     void brake();
 
