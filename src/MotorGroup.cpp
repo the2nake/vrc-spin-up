@@ -61,3 +61,23 @@ void MotorGroup::brake()
         motor->brake();
     }
 }
+
+double MotorGroup::get_actual_velocity() {
+    double sum = 0;
+    for (pros::Motor *motor : this->motors)
+    {
+        sum += motor->get_actual_velocity();
+    }
+
+    return sum / (double)(this->motors.size());
+}
+
+double MotorGroup::get_temperature() {
+    double sum = 0;
+    for (pros::Motor *motor : this->motors)
+    {
+        sum += motor->get_temperature();
+    }
+
+    return sum / (double)(this->motors.size());
+}

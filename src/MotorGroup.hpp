@@ -20,6 +20,9 @@ public:
     void set_gearing(pros::motor_gearset_e_t gearset);
     void set_brake_mode(pros::motor_brake_mode_e_t mode);
     void brake();
+
+    double get_actual_velocity();
+    double get_temperature();
     
 private:
     std::vector<pros::Motor *> motors;

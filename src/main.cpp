@@ -144,7 +144,8 @@ void handleFlywheelControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital_new_press(DIGITAL_UP)) {
+	if (controller->get_digital_new_press(DIGITAL_UP))
+	{
 		flywheelAlwaysOn = !flywheelAlwaysOn;
 	}
 
@@ -237,6 +238,9 @@ void opcontrol()
 		{
 			controller->print(0, 0, (std::string("Shoot mode: IDLE at") + std::to_string(flywheelIdleSpeed)).c_str());
 		}
+
+		controller->print(1, 0, (std::string("Flywheel Speed: ") + std::to_string(flywheel->get_actual_velocity())).c_str());
+		controller->print(2, 0, (std::string("Flywheel Temp:  ") + std::to_string(flywheel->get_temperature())).c_str());
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
