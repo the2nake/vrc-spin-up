@@ -1,3 +1,10 @@
+/**
+ * Filename: main.cpp
+ * Author: home.vn2007@gmail.com
+ * Copyright (c) 2023 by home.vn2007@gmail.com
+ * All rights reserved
+*/
+
 #include "main.h"
 
 #include "HolonomicXDrive.hpp"

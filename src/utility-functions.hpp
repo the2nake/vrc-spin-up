@@ -1,3 +1,10 @@
+/**
+ * Filename: utility-functions.hpp
+ * Author: home.vn2007@gmail.com
+ * Copyright (c) 2023 by home.vn2007@gmail.com
+ * All rights reserved
+*/
+
 #pragma once
 
 /**
