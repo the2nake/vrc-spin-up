@@ -12,6 +12,8 @@
 #define FLYWHEEL_PORT_A 11
 #define FLYWHEEL_PORT_R 12
 
+#define EXPANSION_PORT 13
+
 #define DRIVE_FL_PORT 14
 #define DRIVE_FR_PORT 15
 #define DRIVE_BR_PORT 16

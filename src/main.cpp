@@ -29,6 +29,8 @@ namespace syndicated
 	pros::Motor *intake;
 	pros::Motor *indexer;
 	MotorGroup *flywheel;
+	pros::Motor *expansion;
+
 	HolonomicXDrive *drivetrain;
 
 	double intakeSpeed;
@@ -89,6 +91,10 @@ void initialize()
 	indexer->tare_position();
 	shotReady = true;
 	flywheelAlwaysOn = false;
+
+	expansion = new pros::Motor(EXPANSION_PORT, 1);
+	expansion->set_brake_mode(MOTOR_BRAKE_BRAKE);
+	expansion->brake();
 }
 
 /**
@@ -126,9 +132,13 @@ void autonomous()
 
 	drivetrain->drive(0.3, 180);
 
+	pros::delay(750);
+
 	intake->move_relative(1.9 * 360.0, 100);
 
-	pros::delay(14000);
+	pros::delay(10000);
+
+	drivetrain->brake();
 }
 
 void handleIntakeControls()
@@ -153,7 +163,7 @@ void handleFlywheelControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital_new_press(DIGITAL_UP))
+	if (controller->get_digital_new_press(DIGITAL_DOWN))
 	{
 		flywheelAlwaysOn = !flywheelAlwaysOn;
 	}
@@ -204,6 +214,16 @@ void handleIndexer()
 	}
 }
 
+void handleExpansionControls() {
+	using namespace syndicated;
+
+	if (controller->get_digital(DIGITAL_UP)) {
+		expansion->move(127.0);
+	} else {
+		expansion->brake();
+	}
+}
+
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -238,6 +258,7 @@ void opcontrol()
 		double clx = controller->get_analog(ANALOG_LEFT_X) / 127.0;
 		double cly = controller->get_analog(ANALOG_LEFT_Y) / 127.0;
 
+		/*
 		controller->clear();
 		if (flywheelAlwaysOn)
 		{
@@ -250,6 +271,7 @@ void opcontrol()
 
 		controller->print(1, 0, (std::string("Flywheel RPM:  ") + std::to_string(flywheel->get_actual_velocity())).c_str());
 		controller->print(2, 0, (std::string("Flywheel Temp: ") + std::to_string(flywheel->get_temperature())).c_str());
+		*/
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
@@ -289,6 +311,7 @@ void opcontrol()
 		handleIntakeControls();
 		handleFlywheelControls();
 		handleIndexer();
+		handleExpansionControls();
 
 		handleImuReset();
 
