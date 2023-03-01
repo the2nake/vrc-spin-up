@@ -3,7 +3,7 @@
  * Author: home.vn2007@gmail.com
  * Copyright (c) 2023 by home.vn2007@gmail.com
  * All rights reserved
-*/
+ */
 
 #include "main.h"
 
@@ -115,6 +115,32 @@ void disabled() {}
  */
 void competition_initialize() {}
 
+void doAutonRoller(double mult = 1.0)
+{
+	using namespace syndicated;
+
+	drivetrain->drive(0.2, findMod(180 + imuSensor->get_heading(), 360));
+
+	pros::delay(750);
+
+	intake->move_relative(mult * 3.8 * 360.0, 100);
+
+	drivetrain->brake();
+
+	pros::delay(100);
+
+	while (intake->get_actual_velocity() > 0.1)
+	{
+		pros::delay(20);
+	}
+
+	drivetrain->drive(0.5, imuSensor->get_heading());
+
+	pros::delay(250);
+
+	drivetrain->brake();
+}
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -130,15 +156,47 @@ void autonomous()
 {
 	using namespace syndicated;
 
-	drivetrain->drive(0.3, 180);
+	bool autonomousSkills = false;
+	bool startingOnRoller = true;
 
-	pros::delay(750);
+	if (autonomousSkills)
+	{
+		imuSensor->set_heading(0);
+		doAutonRoller();
 
-	intake->move_relative(1.9 * 360.0, 100);
+		double targetHeading = 90.0;
+		double delta = targetHeading - imuSensor->get_heading();
+		while (std::abs(delta) > 1)
+		{
+			drivetrain->driveAndTurn(0.5, 315, std::max(0.33, std::min(1.0, (0.5 * delta / 90))));
+			pros::delay(20);
 
-	pros::delay(10000);
+			delta = targetHeading - imuSensor->get_heading();
+		}
 
-	drivetrain->brake();
+		drivetrain->brake();
+
+		drivetrain->drive(0.5, 315);
+
+		pros::delay(100);
+
+		drivetrain->brake();
+
+		drivetrain->drive(0.5, 270);
+
+		pros::delay(500);
+
+		drivetrain->brake();
+
+		doAutonRoller();
+	}
+	else
+	{
+		if (startingOnRoller)
+		{
+			doAutonRoller(0.5);
+		}
+	}
 }
 
 void handleIntakeControls()
@@ -214,12 +272,16 @@ void handleIndexer()
 	}
 }
 
-void handleExpansionControls() {
+void handleExpansionControls()
+{
 	using namespace syndicated;
 
-	if (controller->get_digital(DIGITAL_UP)) {
+	if (controller->get_digital(DIGITAL_UP))
+	{
 		expansion->move(127.0);
-	} else {
+	}
+	else
+	{
 		expansion->brake();
 	}
 }
