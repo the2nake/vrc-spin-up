@@ -41,6 +41,10 @@ namespace syndicated
 
 	bool shotReady;
 	double timeSinceLastShot;
+
+	bool autonomousSkills;
+	bool startingOnRoller;
+	bool soloAuton;
 };
 
 /**
@@ -93,8 +97,14 @@ void initialize()
 	flywheelAlwaysOn = false;
 
 	expansion = new pros::Motor(EXPANSION_PORT, 1);
+	expansion->set_gearing(MOTOR_GEAR_RED);
 	expansion->set_brake_mode(MOTOR_BRAKE_BRAKE);
+	expansion->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	expansion->brake();
+
+	autonomousSkills = false;
+	startingOnRoller = false;
+	soloAuton = false;
 }
 
 /**
@@ -119,11 +129,13 @@ void doAutonRoller(double mult = 1.0)
 {
 	using namespace syndicated;
 
+	double frictionCoef = 2;
+
 	drivetrain->drive(0.2, findMod(180 + imuSensor->get_heading(), 360));
 
 	pros::delay(750);
 
-	intake->move_relative(mult * 3.8 * 360.0, 100);
+	intake->move_relative(mult * frictionCoef * 360.0, 100);
 
 	drivetrain->brake();
 
@@ -156,9 +168,6 @@ void autonomous()
 {
 	using namespace syndicated;
 
-	bool autonomousSkills = false;
-	bool startingOnRoller = true;
-
 	if (autonomousSkills)
 	{
 		imuSensor->set_heading(0);
@@ -189,12 +198,51 @@ void autonomous()
 		drivetrain->brake();
 
 		doAutonRoller();
+
+		targetHeading = 45;
+		delta = targetHeading - imuSensor->get_heading();
+		while (std::abs(delta) > 1)
+		{
+			drivetrain->driveAndTurn(0.5, 135, std::min(-0.33, (0.5 * delta / 90))); // delta would be negative here
+			pros::delay(20);
+
+			delta = targetHeading - imuSensor->get_heading();
+		}
+
+		drivetrain->brake();
+
+		pros::delay(100);
+
+		expansion->move_relative(2, 100);
 	}
 	else
 	{
-		if (startingOnRoller)
+		if (soloAuton)
 		{
-			doAutonRoller(0.5);
+		}
+		else
+		{
+			if (startingOnRoller)
+			{
+				doAutonRoller(0.5);
+			}
+			else
+			{
+				double diagTime = 800;
+
+				drivetrain->drive(1, 45);
+				pros::delay(diagTime);
+				drivetrain->brake();
+
+				pros::delay(100);
+
+				drivetrain->drive(1, 135);
+				pros::delay(1.1*diagTime);
+				drivetrain->brake();
+				doAutonRoller(0.5);
+
+				imuSensor->set_heading(270);
+			}
 		}
 	}
 }
@@ -308,6 +356,10 @@ void opcontrol()
 	double imuDriftPerMsec = (imuSensor->get_heading() - startHeading) / 160.0;
 
 	syndicated::controller = new pros::Controller(pros::E_CONTROLLER_MASTER);
+
+	if (!autonomousSkills && !startingOnRoller) {
+		imuSensor->set_heading(270);
+	}
 
 	double headingToMaintain = imuSensor->get_heading();
 
