@@ -210,9 +210,6 @@ void autonomous()
 		}
 
 		drivetrain->brake();
-
-		pros::delay(100);
-
 		expansion->move_relative(2, 100);
 	}
 	else
