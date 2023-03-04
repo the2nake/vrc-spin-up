@@ -9,6 +9,7 @@
 
 #include "HolonomicXDrive.hpp"
 #include "MotorGroup.hpp"
+#include "APS.hpp"
 #include "utility-functions.hpp"
 
 #include "portDefinitions.h"
@@ -28,7 +29,7 @@ namespace syndicated
 
 	pros::Motor *intake;
 	pros::Motor *indexer;
-	MotorGroup *flywheel;
+	pros::Motor *flywheel;
 	pros::Motor *expansion;
 
 	HolonomicXDrive *drivetrain;
@@ -45,6 +46,11 @@ namespace syndicated
 	bool autonomousSkills;
 	bool startingOnRoller;
 	bool soloAuton;
+
+	double prevFlywheelVelocityError;
+	double flywheelVelocityIntegral;
+	double targetCycleTime;
+	double trueTimeElapsed;
 };
 
 /**
@@ -71,7 +77,7 @@ void initialize()
 	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
 	intakeSpeed = 1.0;
 
-	flywheel = new MotorGroup({motorConfiguration{FLYWHEEL_PORT_A, false}, motorConfiguration{FLYWHEEL_PORT_R, true}});
+	flywheel = new pros::Motor(FLYWHEEL_PORT, true);
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
@@ -105,6 +111,9 @@ void initialize()
 	autonomousSkills = false;
 	startingOnRoller = false;
 	soloAuton = false;
+
+	targetCycleTime = 40;
+	trueTimeElapsed = targetCycleTime;
 }
 
 /**
@@ -234,7 +243,7 @@ void autonomous()
 				pros::delay(100);
 
 				drivetrain->drive(1, 135);
-				pros::delay(1.1*diagTime);
+				pros::delay(1.1 * diagTime);
 				drivetrain->brake();
 				doAutonRoller(0.5);
 
@@ -273,7 +282,30 @@ void handleFlywheelControls()
 
 	if (controller->get_digital(DIGITAL_L2) || flywheelAlwaysOn)
 	{
-		flywheel->move_velocity(600 * flywheelSpeed);
+		// use PID control for the flywheel, adding TBH (take back half) method
+		/**
+		 * Programmer's notes:
+		 * A PI controller (kD = 0) may be more accurate, as the flywheel's friction will fight against P and I, so there's no need for D
+		 * A derivative component is probably best for applications where it is okay to reverse in order to settle the velocity. However,
+		   spinning the flywheel in reverse would be a terrible idea.
+		 * TODO: Research take back half in more detail. What exactly is being taken half of? Is TBH even necessary, since the flywheel will
+		   use friction to slow down?
+		*/
+
+		double target = 600.0 * flywheelSpeed; // proportion of 600 rpm
+		double actualVelocity = flywheel->get_actual_velocity();
+		double error = target - actualVelocity;
+		double kP = 1.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
+		syndicated::flywheelVelocityIntegral *= 0.9;
+		syndicated::flywheelVelocityIntegral += error * syndicated::trueTimeElapsed;
+		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error)) {
+			// take back half
+			// TODO: test if necessary
+		}
+		double derivative = (error - syndicated::prevFlywheelVelocityError) / syndicated::trueTimeElapsed;
+		double power = error * kP + syndicated::flywheelVelocityIntegral * kI + derivative * kD;
+		flywheel->move(std::max(127.0 * power / 600.0, 0.0));
+		syndicated::prevFlywheelVelocityError = error;
 	}
 	else
 	{
@@ -354,7 +386,8 @@ void opcontrol()
 
 	syndicated::controller = new pros::Controller(pros::E_CONTROLLER_MASTER);
 
-	if (!autonomousSkills && !startingOnRoller) {
+	if (!autonomousSkills && !startingOnRoller)
+	{
 		imuSensor->set_heading(270);
 	}
 
@@ -427,9 +460,8 @@ void opcontrol()
 		handleImuReset();
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();
-		double targetTime = 16.0;
-		pros::delay(std::max(0.0, targetTime - cycleTime));
-		double trueTimeElapsed = std::max(cycleTime, targetTime);
+		pros::delay(std::max(0.0, targetCycleTime - cycleTime));
+		trueTimeElapsed = std::max(cycleTime, targetCycleTime);
 		// imu sensor drift correction
 		imuSensor->set_heading(imuSensor->get_heading() - (trueTimeElapsed * imuDriftPerMsec));
 		timeSinceLastShot += trueTimeElapsed;

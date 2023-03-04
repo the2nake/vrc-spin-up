@@ -9,8 +9,7 @@
 
 #define INTAKE_PORT 1
 
-#define FLYWHEEL_PORT_A 11
-#define FLYWHEEL_PORT_R 12
+#define FLYWHEEL_PORT 12
 
 #define EXPANSION_PORT 13
 
