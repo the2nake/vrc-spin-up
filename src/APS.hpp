@@ -49,7 +49,6 @@ public:
     void updateAbsolutePosition();
     absolutePosition getAbsolutePosition();
 
-
 private:
     double wheelSize = 2.75;
     double sLO = 1.0, sOR = 1.0, sOS = 1.0;
@@ -61,6 +60,8 @@ private:
     double absX = 0.0;
     double absY = 0.0;
     double absHeading = 0.0;
+
+    pros::Mutex positionDataMutex;
 
     int prevLeftEncVal = 0.0;
     int prevRightEncVal = 0.0;

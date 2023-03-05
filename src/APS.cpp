@@ -32,9 +32,16 @@ APS::~APS()
 
 void APS::setAbsolutePosition(double x, double y, double heading)
 {
+    while (!this->positionDataMutex.take(5))
+    {
+        pros::delay(0.5);
+    }
+
     this->absX = x;
     this->absY = y;
     this->absHeading = heading;
+
+    positionDataMutex.give();
 }
 
 void APS::updateAbsolutePosition()
@@ -53,21 +60,31 @@ void APS::updateAbsolutePosition()
     double oldHeading = this->absHeading;
 
     // calculated as an absolute quantity
-    this->absHeading = (180 / 3.141592) * (currLeftEncVal - currRightEncVal) / (this->sLO + this->sOR);
+    double newHeading = (180 / 3.141592) * (currLeftEncVal - currRightEncVal) / (this->sLO + this->sOR);
 
     // find dX, dY, dH from dL, dR, and dS
     // dY is the along the axis from the previous position to this position
     // dX is the along the axis perpendicular to that
 
-    double dH = this->absHeading - oldHeading;
+    double dH = newHeading - oldHeading;
     double dX = dS / dH - sOS;
     double dY = dR / dH + sOR;
 
     dX *= 2 * sinDeg(dH / 2.0);
     dY *= 2 * sinDeg(dH / 2.0);
 
+    // make sure nothing reads or writes from these variables
+    // setting a few variables should never take more than one update cycle
+    while (!this->positionDataMutex.take(5))
+    {
+        pros::delay(0.5);
+    }
+
     this->absX += dX;
     this->absY += dY;
+    this->absHeading = newHeading;
+
+    this->positionDataMutex.give();
 
     this->prevLeftEncVal = currLeftEncVal;
     this->prevRightEncVal = currRightEncVal;
@@ -76,5 +93,18 @@ void APS::updateAbsolutePosition()
 
 absolutePosition APS::getAbsolutePosition()
 {
-    return {this->absX, this->absY, this->absHeading};
+    // make sure the variables aren't being written to while reading
+    // I used a mutex instead of an atomic variable, as resetting the APS position will require a mutex, and I'm lazy
+    while (!this->positionDataMutex.take(5))
+    {
+        pros::delay(0.5);
+    }
+
+    double x = this->absX;
+    double y = this->absY;
+    double h = this->absHeading;
+
+    this->positionDataMutex.give();
+
+    return {x, y, h};
 }
