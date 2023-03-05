@@ -13,8 +13,8 @@
 
 struct encoderConfig
 {
-    int topPort;
-    int bottomPort;
+    char topPort;
+    char bottomPort;
     bool reversed = false;
 };
 

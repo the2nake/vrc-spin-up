@@ -86,12 +86,12 @@ void initialize()
 	 * ================================
 	 *    FLAGS
 	 * ================================
-	*/
+	 */
 
 	autonomousSkills = false;
 	startingOnRoller = false;
 	soloAuton = false;
-	
+
 	APSUpdateFrequency = 200;
 	targetCycleTime = 40;
 
@@ -105,7 +105,7 @@ void initialize()
 
 	/**
 	 * ================================
-	*/
+	 */
 
 	imu = new pros::Imu(IMU_PORT);
 	imu->reset();
@@ -157,6 +157,7 @@ void initialize()
 	trueTimeElapsed = targetCycleTime;
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
+	odometry = new APS({'A', 'B', true}, {'C', 'D', false}, {'E', 'F', false}, 3.5, 3.5, 4, 2.75);
 }
 
 /**
