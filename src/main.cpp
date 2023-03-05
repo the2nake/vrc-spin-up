@@ -48,7 +48,9 @@ namespace syndicated
 	bool soloAuton;
 
 	double prevFlywheelVelocityError;
+	double flywheelVelocityTBH;
 	double flywheelVelocityIntegral;
+
 	double targetCycleTime;
 	double trueTimeElapsed;
 };
@@ -111,6 +113,10 @@ void initialize()
 	autonomousSkills = false;
 	startingOnRoller = false;
 	soloAuton = false;
+
+	flywheelVelocityTBH = 0;
+	flywheelVelocityIntegral = 0;
+	prevFlywheelVelocityError = 600.0 * flywheelSpeed;
 
 	targetCycleTime = 40;
 	trueTimeElapsed = targetCycleTime;
@@ -298,9 +304,12 @@ void handleFlywheelControls()
 		double kP = 1.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
 		syndicated::flywheelVelocityIntegral *= 0.9;
 		syndicated::flywheelVelocityIntegral += error * syndicated::trueTimeElapsed;
-		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error)) {
+		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error))
+		{
 			// take back half
 			// TODO: test if necessary
+			syndicated::flywheelVelocityIntegral = 0.5 * (syndicated::flywheelVelocityIntegral + syndicated::flywheelVelocityTBH);
+			syndicated::flywheelVelocityTBH = syndicated::flywheelVelocityIntegral;
 		}
 		double derivative = (error - syndicated::prevFlywheelVelocityError) / syndicated::trueTimeElapsed;
 		double power = error * kP + syndicated::flywheelVelocityIntegral * kI + derivative * kD;
