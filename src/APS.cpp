@@ -60,7 +60,7 @@ void APS::updateAbsolutePosition()
     // dX is the along the axis perpendicular to that
 
     double dH = this->absHeading - oldHeading;
-    double dX = dS / dH + sOS;
+    double dX = dS / dH - sOS;
     double dY = dR / dH + sOR;
 
     dX *= 2 * sinDeg(dH / 2.0);
