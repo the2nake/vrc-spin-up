@@ -1,0 +1,80 @@
+/**
+ * Filename: APS.cpp
+ * Author: home.vn2007@gmail.com
+ * Copyright (c) 2023 by home.vn2007@gmail.com
+ * All rights reserved
+ */
+
+#include "APS.hpp"
+
+#include "main.h"
+#include "utility-functions.hpp"
+
+APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig,
+         double sLO, double sOR, double sOS, double wheelSize)
+{
+    this->leftEnc = new pros::ADIEncoder(leftEncoderConfig.topPort, leftEncoderConfig.bottomPort, leftEncoderConfig.reversed);
+    this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
+    this->strafeEnc = new pros::ADIEncoder(strafeEncoderConfig.topPort, strafeEncoderConfig.bottomPort, strafeEncoderConfig.reversed);
+
+    this->wheelSize = wheelSize;
+    this->sLO = sLO;
+    this->sOR = sOR;
+    this->sOS = sOS;
+}
+
+APS::~APS()
+{
+    delete this->leftEnc;
+    delete this->rightEnc;
+    delete this->strafeEnc;
+}
+
+void APS::setAbsolutePosition(double x, double y, double heading)
+{
+    this->absX = x;
+    this->absY = y;
+    this->absHeading = heading;
+}
+
+void APS::updateAbsolutePosition()
+{
+    /**
+     * This function should be called at least once every 10 milliseconds for sufficient accuracy
+     */
+    int currLeftEncVal = this->leftEnc->get_value();
+    int currRightEncVal = this->rightEnc->get_value();
+    int currBackEncVal = this->strafeEnc->get_value();
+
+    double dL = (currLeftEncVal - this->prevLeftEncVal) * this->wheelSize / 360.0;
+    double dR = (currRightEncVal - this->prevRightEncVal) * this->wheelSize / 360.0;
+    double dS = (currBackEncVal - this->prevStrafeEncVal) * this->wheelSize / 360.0;
+
+    double oldHeading = this->absHeading;
+
+    // calculated as an absolute quantity
+    this->absHeading = (180 / 3.141592) * (currLeftEncVal - currRightEncVal) / (this->sLO + this->sOR);
+
+    // find dX, dY, dH from dL, dR, and dS
+    // dY is the along the axis from the previous position to this position
+    // dX is the along the axis perpendicular to that
+
+    double dH = this->absHeading - oldHeading;
+    double dX = dS / dH + sOS;
+    double dY = dR / dH + sOR;
+
+    dX *= 2 * sinDeg(dH / 2.0);
+    dY *= 2 * sinDeg(dH / 2.0);
+
+    this->absX += dX;
+    this->absY += dY;
+
+    this->prevLeftEncVal = currLeftEncVal;
+    this->prevRightEncVal = currRightEncVal;
+    this->prevStrafeEncVal = currBackEncVal;
+}
+
+absolutePosition APS::getAbsolutePosition()
+{
+    return {this->absX, this->absY, this->absHeading};
+}
