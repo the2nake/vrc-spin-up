@@ -156,7 +156,7 @@ void initialize()
 
 	trueTimeElapsed = targetCycleTime;
 
-	APSUpdateTask = new pros::Task{updateAPSTask, "APS Update Task"};
+	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 }
 
 /**
