@@ -24,8 +24,7 @@
 namespace syndicated
 {
 	pros::Controller *controller;
-	pros::Imu *imuSensor;
-	pros::ADIAnalogIn *indexerLineTracker;
+	pros::Imu *imu;
 
 	pros::Motor *intake;
 	pros::Motor *indexer;
@@ -33,6 +32,9 @@ namespace syndicated
 	pros::Motor *expansion;
 
 	HolonomicXDrive *drivetrain;
+	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
+
+	double imuDriftPerMsec;
 
 	double intakeSpeed;
 	double flywheelSpeed;	  // overall percentage
@@ -53,7 +55,22 @@ namespace syndicated
 
 	double targetCycleTime;
 	double trueTimeElapsed;
+
+	pros::Task *APSUpdateTask;
+	int APSUpdateFrequency; // in Hz
 };
+
+void updateAPSTask(void *param)
+{
+	using namespace syndicated;
+	int updateDelay = (int)(1000 / APSUpdateFrequency); // in ms
+	while (odometry != nullptr)
+	{
+		odometry->updateAbsolutePosition();
+
+		pros::delay(updateDelay);
+	}
+}
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -65,32 +82,56 @@ void initialize()
 {
 	using namespace syndicated;
 
-	imuSensor = new pros::Imu(IMU_PORT);
-	imuSensor->reset();
+	/**
+	 * ================================
+	 *    FLAGS
+	 * ================================
+	*/
 
-	while (imuSensor->is_calibrating())
+	autonomousSkills = false;
+	startingOnRoller = false;
+	soloAuton = false;
+	
+	APSUpdateFrequency = 200;
+	targetCycleTime = 40;
+
+	indexerSpeed = 0.5;
+
+	flywheelAlwaysOn = false;
+	flywheelSpeed = 0.60;
+	flywheelIdleSpeed = 0 / flywheelSpeed;
+
+	intakeSpeed = 1.0;
+
+	/**
+	 * ================================
+	*/
+
+	imu = new pros::Imu(IMU_PORT);
+	imu->reset();
+
+	while (imu->is_calibrating())
 	{
 		pros::delay(16);
 	}
+
+	double startHeading = imu->get_heading();
+	pros::delay(160);
+	imuDriftPerMsec = (imu->get_heading() - startHeading) / 160.0;
 
 	drivetrain = new HolonomicXDrive(DRIVE_FL_PORT, DRIVE_FR_PORT, DRIVE_BR_PORT, DRIVE_BL_PORT, IMU_PORT);
 
 	intake = new pros::Motor(INTAKE_PORT);
 	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
-	intakeSpeed = 1.0;
-
 	flywheel = new pros::Motor(FLYWHEEL_PORT, true);
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
-	flywheelSpeed = 0.60;
-	flywheelIdleSpeed = 0 / flywheelSpeed;
 
 	indexer = new pros::Motor(INDEXER_PORT, 1);
 	indexer->set_gearing(MOTOR_GEAR_200);
 	indexer->set_brake_mode(MOTOR_BRAKE_HOLD);
 	indexer->set_encoder_units(MOTOR_ENCODER_DEGREES);
-	indexerSpeed = 0.5;
 
 	indexer->move_velocity(200.0 * indexerSpeed);
 	pros::delay(200);
@@ -102,7 +143,6 @@ void initialize()
 	indexer->brake();
 	indexer->tare_position();
 	shotReady = true;
-	flywheelAlwaysOn = false;
 
 	expansion = new pros::Motor(EXPANSION_PORT, 1);
 	expansion->set_gearing(MOTOR_GEAR_RED);
@@ -110,16 +150,13 @@ void initialize()
 	expansion->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	expansion->brake();
 
-	autonomousSkills = false;
-	startingOnRoller = false;
-	soloAuton = false;
-
 	flywheelVelocityTBH = 0;
 	flywheelVelocityIntegral = 0;
 	prevFlywheelVelocityError = 600.0 * flywheelSpeed;
 
-	targetCycleTime = 40;
 	trueTimeElapsed = targetCycleTime;
+
+	APSUpdateTask = new pros::Task{updateAPSTask, "APS Update Task"};
 }
 
 /**
@@ -146,7 +183,7 @@ void doAutonRoller(double mult = 1.0)
 
 	double frictionCoef = 2;
 
-	drivetrain->drive(0.2, findMod(180 + imuSensor->get_heading(), 360));
+	drivetrain->drive(0.2, findMod(180 + imu->get_heading(), 360));
 
 	pros::delay(750);
 
@@ -161,7 +198,7 @@ void doAutonRoller(double mult = 1.0)
 		pros::delay(20);
 	}
 
-	drivetrain->drive(0.5, imuSensor->get_heading());
+	drivetrain->drive(0.5, imu->get_heading());
 
 	pros::delay(250);
 
@@ -185,17 +222,17 @@ void autonomous()
 
 	if (autonomousSkills)
 	{
-		imuSensor->set_heading(0);
+		imu->set_heading(0);
 		doAutonRoller();
 
 		double targetHeading = 90.0;
-		double delta = targetHeading - imuSensor->get_heading();
+		double delta = targetHeading - imu->get_heading();
 		while (std::abs(delta) > 1)
 		{
 			drivetrain->driveAndTurn(0.5, 315, std::max(0.33, std::min(1.0, (0.5 * delta / 90))));
 			pros::delay(20);
 
-			delta = targetHeading - imuSensor->get_heading();
+			delta = targetHeading - imu->get_heading();
 		}
 
 		drivetrain->brake();
@@ -215,13 +252,13 @@ void autonomous()
 		doAutonRoller();
 
 		targetHeading = 45;
-		delta = targetHeading - imuSensor->get_heading();
+		delta = targetHeading - imu->get_heading();
 		while (std::abs(delta) > 1)
 		{
 			drivetrain->driveAndTurn(0.5, 135, std::min(-0.33, (0.5 * delta / 90))); // delta would be negative here
 			pros::delay(20);
 
-			delta = targetHeading - imuSensor->get_heading();
+			delta = targetHeading - imu->get_heading();
 		}
 
 		drivetrain->brake();
@@ -253,7 +290,7 @@ void autonomous()
 				drivetrain->brake();
 				doAutonRoller(0.5);
 
-				imuSensor->set_heading(270);
+				imu->set_heading(270);
 			}
 		}
 	}
@@ -322,13 +359,14 @@ void handleFlywheelControls()
 	}
 }
 
-void handleImuReset()
+void handleHeadingReset()
 {
 	using namespace syndicated;
 
 	if (controller->get_digital(DIGITAL_B))
 	{
-		imuSensor->set_heading(0);
+		imu->set_heading(0);
+		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 0);
 	}
 }
 
@@ -389,18 +427,15 @@ void opcontrol()
 {
 	using namespace syndicated;
 
-	double startHeading = imuSensor->get_heading();
-	pros::delay(160);
-	double imuDriftPerMsec = (imuSensor->get_heading() - startHeading) / 160.0;
-
 	syndicated::controller = new pros::Controller(pros::E_CONTROLLER_MASTER);
 
 	if (!autonomousSkills && !startingOnRoller)
 	{
-		imuSensor->set_heading(270);
+		imu->set_heading(270);
+		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 270);
 	}
 
-	double headingToMaintain = imuSensor->get_heading();
+	double headingToMaintain = imu->get_heading();
 
 	while (true)
 	{
@@ -431,7 +466,7 @@ void opcontrol()
 
 		if (std::abs(clx) < 0.01)
 		{
-			headingToMaintain = imuSensor->get_heading();
+			headingToMaintain = imu->get_heading();
 		}
 
 		if (std::abs(crx) + std::abs(cry) < 0.01)
@@ -442,14 +477,14 @@ void opcontrol()
 			}
 			else
 			{
-				drivetrain->driveAndTurn(cly, imuSensor->get_heading(), clx);
+				drivetrain->driveAndTurn(cly, imu->get_heading(), clx);
 			}
 		}
 		else if (std::abs(clx) < 0.01)
 		{
 			// use a PID controller
 
-			double angleToHeadingAnticlockwise = findMod(360 + imuSensor->get_heading() - headingToMaintain, 360);
+			double angleToHeadingAnticlockwise = findMod(360 + imu->get_heading() - headingToMaintain, 360);
 			bool shouldTurnAnticlockwise = angleToHeadingAnticlockwise < 180;
 
 			double turnVelocity = (shouldTurnAnticlockwise ? -1 : 1) * 0.5 * (shouldTurnAnticlockwise ? sinDeg(angleToHeadingAnticlockwise / 2.0) : sinDeg(180 - angleToHeadingAnticlockwise / 2.0));
@@ -466,13 +501,13 @@ void opcontrol()
 		handleIndexer();
 		handleExpansionControls();
 
-		handleImuReset();
+		handleHeadingReset();
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();
 		pros::delay(std::max(0.0, targetCycleTime - cycleTime));
 		trueTimeElapsed = std::max(cycleTime, targetCycleTime);
 		// imu sensor drift correction
-		imuSensor->set_heading(imuSensor->get_heading() - (trueTimeElapsed * imuDriftPerMsec));
+		imu->set_heading(imu->get_heading() - (trueTimeElapsed * imuDriftPerMsec));
 		timeSinceLastShot += trueTimeElapsed;
 	}
 }

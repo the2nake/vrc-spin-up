@@ -9,6 +9,8 @@
 
 #include "main.h"
 
+#define APS_NO_CHANGE 32767
+
 struct encoderConfig
 {
     int topPort;

@@ -37,9 +37,14 @@ void APS::setAbsolutePosition(double x, double y, double heading)
         pros::delay(0.5);
     }
 
-    this->absX = x;
-    this->absY = y;
-    this->absHeading = heading;
+    if (x != APS_NO_CHANGE)
+        this->absX = x;
+
+    if (y != APS_NO_CHANGE)
+        this->absY = y;
+
+    if (heading != APS_NO_CHANGE)
+        this->absHeading = heading;
 
     positionDataMutex.give();
 }
