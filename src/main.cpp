@@ -332,8 +332,6 @@ void handleFlywheelControls()
 		 * A PI controller (kD = 0) may be more accurate, as the flywheel's friction will fight against P and I, so there's no need for D
 		 * A derivative component is probably best for applications where it is okay to reverse in order to settle the velocity. However,
 		   spinning the flywheel in reverse would be a terrible idea.
-		 * TODO: Research take back half in more detail. What exactly is being taken half of? Is TBH even necessary, since the flywheel will
-		   use friction to slow down?
 		*/
 
 		double target = 600.0 * flywheelSpeed; // proportion of 600 rpm
@@ -345,7 +343,6 @@ void handleFlywheelControls()
 		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error))
 		{
 			// take back half
-			// TODO: test if necessary
 			syndicated::flywheelVelocityIntegral = 0.5 * (syndicated::flywheelVelocityIntegral + syndicated::flywheelVelocityTBH);
 			syndicated::flywheelVelocityTBH = syndicated::flywheelVelocityIntegral;
 		}
