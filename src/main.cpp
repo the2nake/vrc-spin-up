@@ -157,7 +157,7 @@ void initialize()
 	trueTimeElapsed = targetCycleTime;
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
-	odometry = new APS({'A', 'B', false}, {'C', 'D', true}, {'E', 'F', true}, 2.5, 2.5, 0, 2.75);
+	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 2.5, 2.5, 0, {4, 4, 2.75});
 }
 
 /**

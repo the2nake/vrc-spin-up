@@ -11,13 +11,15 @@
 #include "utility-functions.hpp"
 
 APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig,
-         double sLO, double sOR, double sOS, double wheelSize)
+         double sLO, double sOR, double sOS, odomConfig wheelSizes)
 {
     this->leftEnc = new pros::ADIEncoder(leftEncoderConfig.topPort, leftEncoderConfig.bottomPort, leftEncoderConfig.reversed);
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
     this->strafeEnc = new pros::ADIEncoder(strafeEncoderConfig.topPort, strafeEncoderConfig.bottomPort, strafeEncoderConfig.reversed);
 
-    this->wheelSize = wheelSize;
+    this->leftWheelSize = wheelSizes.leftWheelSize;
+    this->rightWheelSize = wheelSizes.rightWheelSize;
+    this->strafeWheelSize = wheelSizes.strafeWheelSize;
     this->sLO = sLO;
     this->sOR = sOR;
     this->sOS = sOS;
@@ -58,9 +60,9 @@ void APS::updateAbsolutePosition()
     int currRightEncVal = this->rightEnc->get_value();
     int currBackEncVal = this->strafeEnc->get_value();
 
-    double dL = (currLeftEncVal - this->prevLeftEncVal) * this->wheelSize / 360.0;
-    double dR = (currRightEncVal - this->prevRightEncVal) * this->wheelSize / 360.0;
-    double dS = (currBackEncVal - this->prevStrafeEncVal) * this->wheelSize / 360.0;
+    double dL = (currLeftEncVal - this->prevLeftEncVal) * this->leftWheelSize / 360.0;
+    double dR = (currRightEncVal - this->prevRightEncVal) * this->rightWheelSize / 360.0;
+    double dS = (currBackEncVal - this->prevStrafeEncVal) * this->strafeWheelSize / 360.0;
 
     double oldHeading = this->absHeading;
 

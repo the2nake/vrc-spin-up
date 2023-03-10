@@ -24,6 +24,12 @@ struct absolutePosition {
     double heading;
 };
 
+struct odomConfig {
+    double leftWheelSize;
+    double rightWheelSize;
+    double strafeWheelSize;
+};
+
 class APS
 {
 public:
@@ -41,7 +47,7 @@ public:
      * @param sOS Y position of the back encoder wheel, relative to the left and right encoder wheels, in inches;
      */
     APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig, double sLO, double sOR,
-        double sOS, double wheelSize = 2.75);
+        double sOS, odomConfig wheelSizes = {2.75, 2.75, 2.75});
     ~APS();
 
     /**
@@ -52,7 +58,9 @@ public:
     absolutePosition getAbsolutePosition();
 
 private:
-    double wheelSize = 2.75;
+    double leftWheelSize = 2.75;
+    double rightWheelSize = 2.75;
+    double strafeWheelSize = 2.75;
     double sLO = 1.0, sOR = 1.0, sOS = 1.0;
 
     pros::ADIEncoder *leftEnc = nullptr;
