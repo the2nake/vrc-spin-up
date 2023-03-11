@@ -1,7 +1,7 @@
 #include "PTOMotor.hpp"
 
 PTOMotor::PTOMotor(const std::int8_t port, const bool reverse, const pros::motor_gearset_e_t gearset,
-                   const pros::motor_encoder_units_e_t encoder_units) : pros::Motor(port)
+                   const pros::motor_encoder_units_e_t encoder_units) : pros::Motor(port, gearset, reverse, encoder_units)
 {
     this->motor = new pros::Motor(port, gearset, reverse, encoder_units);
     this->pto_mode = false;

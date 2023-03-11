@@ -16,26 +16,15 @@
  */
 double findMod(double a, double b)
 {
-    double mod;
-    // Handling negative values
-    if (a < 0)
-        mod = -a;
-    else
-        mod = a;
-    if (b < 0)
-        b = -b;
+    while (a < 0) {
+        a += b;
+    }
 
-    // Finding mod by repeated subtraction
+    while (a > b) {
+        a -= b;
+    }
 
-    while (mod >= b)
-        mod = mod - b;
-
-    // Sign of result typically depends
-    // on sign of a.
-    if (a < 0)
-        return -mod;
-
-    return mod;
+    return a;
 }
 /**
  * Sine function using degrees

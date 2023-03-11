@@ -17,9 +17,9 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
     this->strafeEnc = new pros::ADIEncoder(strafeEncoderConfig.topPort, strafeEncoderConfig.bottomPort, strafeEncoderConfig.reversed);
 
-    this->leftWheelSize = wheelSizes.leftWheelSize;
-    this->rightWheelSize = wheelSizes.rightWheelSize;
-    this->strafeWheelSize = wheelSizes.strafeWheelSize;
+    this->leftWheelSize = wheelSizes.leftWheelSize * 3.141592;
+    this->rightWheelSize = wheelSizes.rightWheelSize * 3.141592;
+    this->strafeWheelSize = wheelSizes.strafeWheelSize * 3.141592;
     this->sLO = sLO;
     this->sOR = sOR;
     this->sOS = sOS;
@@ -36,17 +36,25 @@ void APS::setAbsolutePosition(double x, double y, double heading)
 {
     while (!this->positionDataMutex.take(5))
     {
-        pros::delay(0.5);
     }
 
-    if (x != APS_NO_CHANGE)
-        this->absX = x;
+    this->leftEnc->reset();
+    this->rightEnc->reset();
+    this->strafeEnc->reset();
 
+    if (x != APS_NO_CHANGE)
+    {
+        this->absX = x;
+    }
     if (y != APS_NO_CHANGE)
+    {
         this->absY = y;
+    }
 
     if (heading != APS_NO_CHANGE)
+    {
         this->absHeading = heading;
+    }
 
     positionDataMutex.give();
 }
@@ -58,16 +66,16 @@ void APS::updateAbsolutePosition()
      */
     int currLeftEncVal = this->leftEnc->get_value();
     int currRightEncVal = this->rightEnc->get_value();
-    int currBackEncVal = this->strafeEnc->get_value();
+    int currStrafeEncVal = this->strafeEnc->get_value();
 
     double dL = (currLeftEncVal - this->prevLeftEncVal) * this->leftWheelSize / 360.0;
     double dR = (currRightEncVal - this->prevRightEncVal) * this->rightWheelSize / 360.0;
-    double dS = (currBackEncVal - this->prevStrafeEncVal) * this->strafeWheelSize / 360.0;
+    double dS = (currStrafeEncVal - this->prevStrafeEncVal) * this->strafeWheelSize / 360.0;
 
     double oldHeading = this->absHeading;
 
     // calculated as an absolute quantity
-    double newHeading = (180 / 3.141592) * (currLeftEncVal - currRightEncVal) / (this->sLO + this->sOR);
+    double newHeading = (180 / 3.141592) * ((currLeftEncVal / 360.0) * this->leftWheelSize - (currRightEncVal / 360.0) * this->rightWheelSize) / (this->sLO + this->sOR);
 
     // find dX, dY, dH from dL, dR, and dS
     // dY is the along the axis from the previous position to this position
@@ -84,18 +92,15 @@ void APS::updateAbsolutePosition()
     // setting a few variables should never take more than one update cycle
     while (!this->positionDataMutex.take(5))
     {
-        pros::delay(0.5);
     }
-
     this->absX = this->absX + dX;
     this->absY = this->absY + dY;
-    this->absHeading = newHeading;
-
+    this->absHeading = this->absHeading + dH;
     this->positionDataMutex.give();
 
     this->prevLeftEncVal = currLeftEncVal;
     this->prevRightEncVal = currRightEncVal;
-    this->prevStrafeEncVal = currBackEncVal;
+    this->prevStrafeEncVal = currStrafeEncVal;
 }
 
 absolutePosition APS::getAbsolutePosition()

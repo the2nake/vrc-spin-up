@@ -7,12 +7,6 @@ StarDrive::StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Moto
 {
     // motors should be set up so that fwd moves the robot in the fwd direction
 
-    isPTO[0] = (dynamic_cast<PTOMotor *>(frontLeft) != nullptr);
-    isPTO[1] = (dynamic_cast<PTOMotor *>(frontRight) != nullptr);
-    isPTO[2] = (dynamic_cast<PTOMotor *>(midRight) != nullptr);
-    isPTO[3] = (dynamic_cast<PTOMotor *>(backRight) != nullptr);
-    isPTO[4] = (dynamic_cast<PTOMotor *>(backLeft) != nullptr);
-    isPTO[5] = (dynamic_cast<PTOMotor *>(midLeft) != nullptr);
     this->frontLeft = frontLeft;
     this->frontRight = frontRight;
     this->midRight = midRight;
@@ -60,18 +54,20 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
     double vFR = cosDeg(675 - theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) - rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
     double vBL = cosDeg(675 - theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) + rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
 
-    double vML = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) - 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
-    double vMR = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) + 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
-    
+    double vML = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) + 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
+    double vMR = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) - 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
+
     double velocities[] = {200.0 * vFL, 200.0 * vFR, 200.0 * vMR, 200.0 * vBR, 200.0 * vBL, 200.0 * vML};
 
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
     {
-        if (isPTO[i])
+        if (dynamic_cast<PTOMotor *>(m) != nullptr)
         {
-            dynamic_cast<PTOMotor*>(m)->move_velocity(velocities[i]);
-        } else {
+            dynamic_cast<PTOMotor *>(m)->move_velocity(velocities[i]);
+        }
+        else
+        {
             m->move_velocity(velocities[i]);
         }
         i++;
@@ -83,10 +79,12 @@ void StarDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
     {
-        if (isPTO[i])
+        if (dynamic_cast<PTOMotor *>(m) != nullptr)
         {
-            dynamic_cast<PTOMotor*>(m)->set_brake_mode(mode);
-        } else {
+            dynamic_cast<PTOMotor *>(m)->set_brake_mode(mode);
+        }
+        else
+        {
             m->set_brake_mode(mode);
         }
         i++;
@@ -97,10 +95,13 @@ void StarDrive::brake()
 {
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
-    {if (isPTO[i])
+    {
+        if (dynamic_cast<PTOMotor *>(m) != nullptr)
         {
-            dynamic_cast<PTOMotor*>(m)->brake();
-        } else {
+            dynamic_cast<PTOMotor *>(m)->brake();
+        }
+        else
+        {
             m->brake();
         }
         i++;

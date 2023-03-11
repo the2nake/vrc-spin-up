@@ -25,12 +25,9 @@
 namespace syndicated
 {
 	pros::Controller *controller;
-	pros::Imu *imu;
 
 	pros::Motor *intake;
-	pros::Motor *indexer;
 	pros::Motor *flywheel;
-	pros::Motor *expansion;
 
 	pros::Motor *driveFrontLeft;
 	pros::Motor *driveFrontRight;
@@ -42,7 +39,7 @@ namespace syndicated
 	StarDrive *drivetrain;
 	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
 
-	double imuDriftPerMsec;
+	pros::ADIDigitalOut *pto;
 
 	double intakeSpeed;
 	double flywheelSpeed;	  // overall percentage
@@ -66,6 +63,8 @@ namespace syndicated
 
 	pros::Task *APSUpdateTask;
 	int APSUpdateFrequency; // in Hz
+
+	bool ptoIsOn;
 };
 
 void updateAPSTask(void *param)
@@ -100,7 +99,7 @@ void initialize()
 	startingOnRoller = false;
 	soloAuton = false;
 
-	APSUpdateFrequency = 200;
+	APSUpdateFrequency = 160;
 	targetCycleTime = 40;
 
 	indexerSpeed = 0.5;
@@ -115,57 +114,12 @@ void initialize()
 	 * ================================
 	 */
 
-	imu = new pros::Imu(IMU_PORT);
-	imu->reset();
-
-	while (imu->is_calibrating())
-	{
-		pros::delay(16);
-	}
-
-	double startHeading = imu->get_heading();
-	pros::delay(160);
-	imuDriftPerMsec = (imu->get_heading() - startHeading) / 160.0;
-
-	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT);
-	driveFrontRight = new pros::Motor(DRIVE_FR_PORT);
-	driveBackRight = new pros::Motor(DRIVE_BR_PORT);
-	driveBackLeft = new pros::Motor(DRIVE_BL_PORT);
-
-	driveMidRight = new PTOMotor(DRIVE_ML_PORT);
-	driveMidRight = new PTOMotor(DRIVE_MR_PORT);
-
-	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
-							   driveBackLeft, driveMidLeft, odometry);
-
 	intake = new pros::Motor(INTAKE_PORT);
 	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
 	flywheel = new pros::Motor(FLYWHEEL_PORT, true);
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
-
-	indexer = new pros::Motor(INDEXER_PORT, 1);
-	indexer->set_gearing(MOTOR_GEAR_200);
-	indexer->set_brake_mode(MOTOR_BRAKE_HOLD);
-	indexer->set_encoder_units(MOTOR_ENCODER_DEGREES);
-
-	indexer->move_velocity(200.0 * indexerSpeed);
-	pros::delay(200);
-	while (indexer->get_efficiency() > 0.5)
-	{
-		indexer->move_velocity(200.0 * indexerSpeed);
-		pros::delay(16);
-	}
-	indexer->brake();
-	indexer->tare_position();
-	shotReady = true;
-
-	expansion = new pros::Motor(EXPANSION_PORT, 1);
-	expansion->set_gearing(MOTOR_GEAR_RED);
-	expansion->set_brake_mode(MOTOR_BRAKE_BRAKE);
-	expansion->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
-	expansion->brake();
 
 	flywheelVelocityTBH = 0;
 	flywheelVelocityIntegral = 0;
@@ -174,7 +128,23 @@ void initialize()
 	trueTimeElapsed = targetCycleTime;
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
-	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 2.5, 2.5, 0, {4, 4, 2.75});
+	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75});
+
+	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT);
+	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, 1);
+	driveBackRight = new pros::Motor(DRIVE_BR_PORT, 1);
+	driveBackLeft = new pros::Motor(DRIVE_BL_PORT);
+
+	driveMidLeft = new PTOMotor(DRIVE_ML_PORT);
+	driveMidRight = new PTOMotor(DRIVE_MR_PORT, 1);
+
+	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
+							   driveBackLeft, driveMidLeft, odometry);
+
+	ptoIsOn = false;
+	pto = new pros::ADIDigitalOut(PTO_PORT);
+	dynamic_cast<PTOMotor *>(driveMidLeft)->set_pto_mode(false);
+	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(false);
 }
 
 /**
@@ -195,34 +165,6 @@ void disabled() {}
  */
 void competition_initialize() {}
 
-void doAutonRoller(double mult = 1.0)
-{
-	using namespace syndicated;
-
-	double frictionCoef = 2;
-
-	drivetrain->drive(0.2, findMod(180 + imu->get_heading(), 360));
-
-	pros::delay(750);
-
-	intake->move_relative(mult * frictionCoef * 360.0, 100);
-
-	drivetrain->brake();
-
-	pros::delay(100);
-
-	while (intake->get_actual_velocity() > 0.1)
-	{
-		pros::delay(20);
-	}
-
-	drivetrain->drive(0.5, imu->get_heading());
-
-	pros::delay(250);
-
-	drivetrain->brake();
-}
-
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -237,81 +179,6 @@ void doAutonRoller(double mult = 1.0)
 void autonomous()
 {
 	using namespace syndicated;
-
-	if (autonomousSkills)
-	{
-		imu->set_heading(0);
-		doAutonRoller();
-
-		double targetHeading = 90.0;
-		double delta = targetHeading - imu->get_heading();
-		while (std::abs(delta) > 1)
-		{
-			drivetrain->driveAndTurn(0.5, 315, std::max(0.33, std::min(1.0, (0.5 * delta / 90))));
-			pros::delay(20);
-
-			delta = targetHeading - imu->get_heading();
-		}
-
-		drivetrain->brake();
-
-		drivetrain->drive(0.5, 315);
-
-		pros::delay(100);
-
-		drivetrain->brake();
-
-		drivetrain->drive(0.5, 270);
-
-		pros::delay(500);
-
-		drivetrain->brake();
-
-		doAutonRoller();
-
-		targetHeading = 45;
-		delta = targetHeading - imu->get_heading();
-		while (std::abs(delta) > 1)
-		{
-			drivetrain->driveAndTurn(0.5, 135, std::min(-0.33, (0.5 * delta / 90))); // delta would be negative here
-			pros::delay(20);
-
-			delta = targetHeading - imu->get_heading();
-		}
-
-		drivetrain->brake();
-		expansion->move_relative(2, 100);
-	}
-	else
-	{
-		if (soloAuton)
-		{
-		}
-		else
-		{
-			if (startingOnRoller)
-			{
-				doAutonRoller(0.5);
-			}
-			else
-			{
-				double diagTime = 800;
-
-				drivetrain->drive(1, 45);
-				pros::delay(diagTime);
-				drivetrain->brake();
-
-				pros::delay(100);
-
-				drivetrain->drive(1, 135);
-				pros::delay(1.1 * diagTime);
-				drivetrain->brake();
-				doAutonRoller(0.5);
-
-				imu->set_heading(270);
-			}
-		}
-	}
 }
 
 void handleIntakeControls()
@@ -378,50 +245,10 @@ void handleHeadingReset()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital(DIGITAL_B))
+	if (controller->get_digital(DIGITAL_Y))
 	{
-		imu->set_heading(0);
+		pros::screen::print(TEXT_MEDIUM, 4, "Reseting heading");
 		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 0);
-	}
-}
-
-void handleIndexer()
-{
-	using namespace syndicated;
-
-	if (controller->get_digital(DIGITAL_L1))
-	{
-		indexer->move_velocity(-200 * indexerSpeed);
-		timeSinceLastShot = 0;
-		shotReady = false;
-	}
-	else if (!shotReady)
-	{
-		indexer->move_velocity(200 * indexerSpeed);
-
-		if (timeSinceLastShot > 1500)
-		{
-			indexer->brake();
-			shotReady = true;
-		}
-	}
-	else
-	{
-		indexer->brake();
-	}
-}
-
-void handleExpansionControls()
-{
-	using namespace syndicated;
-
-	if (controller->get_digital(DIGITAL_UP))
-	{
-		expansion->move(127.0);
-	}
-	else
-	{
-		expansion->brake();
 	}
 }
 
@@ -431,10 +258,12 @@ void handlePTOControls()
 
 	if (controller->get_digital_new_press(DIGITAL_B))
 	{
-		PTOMotor* mr_ptr = dynamic_cast<PTOMotor*>(driveMidRight);
-		PTOMotor* ml_ptr = dynamic_cast<PTOMotor*>(driveMidLeft);
-		mr_ptr->set_pto_mode(!mr_ptr->get_pto_mode());
-		ml_ptr->set_pto_mode(!ml_ptr->get_pto_mode());
+		ptoIsOn = !ptoIsOn;
+		PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+		PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+		pto->set_value(ptoIsOn);
+		mr_ptr->set_pto_mode(ptoIsOn);
+		ml_ptr->set_pto_mode(ptoIsOn);
 	}
 }
 
@@ -459,65 +288,41 @@ void opcontrol()
 
 	if (!autonomousSkills && !startingOnRoller)
 	{
-		imu->set_heading(270);
 		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 270);
 	}
 
-	double headingToMaintain = imu->get_heading();
+	double headingToMaintain = odometry->getAbsolutePosition().heading;
 
 	while (true)
 	{
 		auto cycleStart = std::chrono::high_resolution_clock::now();
+
+		pros::screen::erase();
+		pros::screen::print(TEXT_MEDIUM, 1, ptoIsOn ? "PTO: on" : "PTO: off");
+		pros::screen::print(TEXT_MEDIUM, 2, std::to_string(odometry->getAbsolutePosition().heading).c_str());
 
 		double crx = controller->get_analog(ANALOG_RIGHT_X) / 127.0;
 		double cry = controller->get_analog(ANALOG_RIGHT_Y) / 127.0;
 		double clx = controller->get_analog(ANALOG_LEFT_X) / 127.0;
 		double cly = controller->get_analog(ANALOG_LEFT_Y) / 127.0;
 
-		/*
-		controller->clear();
-		if (flywheelAlwaysOn)
-		{
-			controller->print(0, 0, "Shoot mode: ALWAYS ON");
-		}
-		else
-		{
-			controller->print(0, 0, (std::string("Shoot mode: IDLE at") + std::to_string(flywheelIdleSpeed)).c_str());
-		}
-
-		controller->print(1, 0, (std::string("Flywheel RPM:  ") + std::to_string(flywheel->get_actual_velocity())).c_str());
-		controller->print(2, 0, (std::string("Flywheel Temp: ") + std::to_string(flywheel->get_temperature())).c_str());
-		*/
-
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
 
-		if (std::abs(clx) < 0.01)
+		if (std::abs(clx) > 0.01)
 		{
-			headingToMaintain = imu->get_heading();
+			headingToMaintain = odometry->getAbsolutePosition().heading;
 		}
 
-		if (std::abs(crx) + std::abs(cry) < 0.01)
+		if (std::abs(crx) < 0.01 && std::abs(cry) < 0.01 && std::abs(clx) < 0.01)
 		{
-			if (std::abs(cly) < 0.01 && std::abs(clx) < 0.01)
-			{
-				drivetrain->brake();
-			}
-			else
-			{
-				drivetrain->driveAndTurn(cly, imu->get_heading(), clx);
-			}
+			drivetrain->brake();
 		}
 		else if (std::abs(clx) < 0.01)
 		{
 			// use a PID controller
-
-			double angleToHeadingAnticlockwise = findMod(360 + imu->get_heading() - headingToMaintain, 360);
-			bool shouldTurnAnticlockwise = angleToHeadingAnticlockwise < 180;
-
-			double turnVelocity = (shouldTurnAnticlockwise ? -1 : 1) * 0.5 * (shouldTurnAnticlockwise ? sinDeg(angleToHeadingAnticlockwise / 2.0) : sinDeg(180 - angleToHeadingAnticlockwise / 2.0));
-
-			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, turnVelocity);
+			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
+			// drivetrain->driveAndMaintainHeading(translationVector.rho, 90-translationVector.theta, headingToMaintain);
 		}
 		else
 		{
@@ -527,16 +332,12 @@ void opcontrol()
 		handlePTOControls();
 		// handleIntakeControls();
 		// handleFlywheelControls();
-		// handleIndexer();
-		// handleExpansionControls();
 
 		handleHeadingReset();
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();
 		pros::delay(std::max(0.0, targetCycleTime - cycleTime));
 		trueTimeElapsed = std::max(cycleTime, targetCycleTime);
-		// imu sensor drift correction
-		imu->set_heading(imu->get_heading() - (trueTimeElapsed * imuDriftPerMsec));
 		timeSinceLastShot += trueTimeElapsed;
 	}
 }

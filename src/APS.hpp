@@ -11,7 +11,7 @@
 
 #include <atomic>
 
-#define APS_NO_CHANGE 32767
+#define APS_NO_CHANGE 32000
 
 struct encoderConfig
 {
@@ -49,7 +49,7 @@ public:
      * @param sOS Y position of the back encoder wheel, relative to the left and right encoder wheels, in inches;
      */
     APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig, double sLO, double sOR,
-        double sOS, odomConfig wheelSizes = {2.75, 2.75, 2.75});
+        double sOS, odomConfig wheelSizes);
     ~APS();
 
     /**

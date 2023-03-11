@@ -12,15 +12,15 @@ public:
     void set_pto_mode(bool mode);
     bool get_pto_mode();
 
-	std::int32_t move_velocity(const std::int32_t velocity) const override;
-	std::int32_t move_velocity_if_pto(const std::int32_t velocity) const;
-	std::int32_t move_velocity_override(const std::int32_t velocity) const;
+    std::int32_t move_velocity(const std::int32_t velocity) const override;
+    std::int32_t move_velocity_if_pto(const std::int32_t velocity) const;
+    std::int32_t move_velocity_override(const std::int32_t velocity) const;
 
     std::int32_t brake(void) const override;
     std::int32_t brake_if_pto(void) const;
     std::int32_t brake_override(void) const;
 
-	std::int32_t set_brake_mode(const pros::motor_brake_mode_e_t mode) const override;
+    std::int32_t set_brake_mode(const pros::motor_brake_mode_e_t mode) const override;
 
 private:
     pros::Motor *motor = nullptr;
