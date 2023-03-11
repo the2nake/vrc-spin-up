@@ -9,6 +9,8 @@
 
 #include "main.h"
 
+#include <atomic>
+
 #define APS_NO_CHANGE 32767
 
 struct encoderConfig
@@ -67,9 +69,9 @@ private:
     pros::ADIEncoder *rightEnc = nullptr;
     pros::ADIEncoder *strafeEnc = nullptr;
 
-    double absX = 0.0;
-    double absY = 0.0;
-    double absHeading = 0.0;
+    std::atomic<double> absX = 0.0;
+    std::atomic<double> absY = 0.0;
+    std::atomic<double> absHeading = 0.0;
 
     pros::Mutex positionDataMutex;
 

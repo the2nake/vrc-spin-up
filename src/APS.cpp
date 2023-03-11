@@ -87,8 +87,8 @@ void APS::updateAbsolutePosition()
         pros::delay(0.5);
     }
 
-    this->absX += dX;
-    this->absY += dY;
+    this->absX = this->absX + dX;
+    this->absY = this->absY + dY;
     this->absHeading = newHeading;
 
     this->positionDataMutex.give();
@@ -100,18 +100,9 @@ void APS::updateAbsolutePosition()
 
 absolutePosition APS::getAbsolutePosition()
 {
-    // make sure the variables aren't being written to while reading
-    // I used a mutex instead of an atomic variable, as resetting the APS position will require a mutex, and I'm lazy
-    while (!this->positionDataMutex.take(5))
-    {
-        pros::delay(0.5);
-    }
-
-    double x = this->absX;
-    double y = this->absY;
-    double h = this->absHeading;
-
-    this->positionDataMutex.give();
+    double x = this->absX.load();
+    double y = this->absY.load();
+    double h = this->absHeading.load();
 
     return {x, y, h};
 }
