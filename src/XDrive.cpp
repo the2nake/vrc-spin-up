@@ -1,17 +1,17 @@
 /**
- * Filename: HolonomicXDrive.cpp
+ * Filename: XDrive.cpp
  * Author: home.vn2007@gmail.com
  * Copyright (c) 2023 by home.vn2007@gmail.com
  * All rights reserved
 */
 
-#include "HolonomicXDrive.hpp"
+#include "XDrive.hpp"
 
 #include "utility-functions.hpp"
 
 #include "main.h"
 
-HolonomicXDrive::HolonomicXDrive(int portFrontLeft, int portFrontRight, int portBackRight, int portBackLeft, int portImu)
+XDrive::XDrive(int portFrontLeft, int portFrontRight, int portBackRight, int portBackLeft, int portImu)
 {
     this->mFL = new pros::Motor(portFrontLeft);
     this->mFR = new pros::Motor(portFrontRight, 1);
@@ -28,7 +28,7 @@ HolonomicXDrive::HolonomicXDrive(int portFrontLeft, int portFrontRight, int port
     this->mBL->set_gearing(MOTOR_GEAR_200);
 }
 
-HolonomicXDrive::~HolonomicXDrive()
+XDrive::~XDrive()
 {
     pros::Motor *motors[] = {mFL, mFR, mBR, mBL};
     for (auto motor : motors)
@@ -39,7 +39,7 @@ HolonomicXDrive::~HolonomicXDrive()
     delete imu;
 }
 
-void HolonomicXDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
+void XDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
 {
     for (auto i : {mFL, mFR, mBR, mBL})
     {
@@ -47,12 +47,12 @@ void HolonomicXDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
     }
 }
 
-void HolonomicXDrive::drive(double vTrans, double hTrans)
+void XDrive::drive(double vTrans, double hTrans)
 {
     driveAndTurn(vTrans, hTrans, 0);
 }
 
-void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
+void XDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
 {
     if (vTrans == 0 && vRot == 0)
     {
@@ -98,7 +98,7 @@ void HolonomicXDrive::driveAndTurn(double vTrans, double hTrans, double vRot)
     this->mBL->move_velocity(200.0 * vBL);
 }
 
-void HolonomicXDrive::brake()
+void XDrive::brake()
 {
     for (auto i : {mFL, mFR, mBR, mBL})
     {

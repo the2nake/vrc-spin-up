@@ -7,7 +7,8 @@
 
 #include "main.h"
 
-#include "HolonomicXDrive.hpp"
+#include "PTOMotor.hpp"
+#include "StarDrive.hpp"
 #include "MotorGroup.hpp"
 #include "APS.hpp"
 #include "utility-functions.hpp"
@@ -31,7 +32,14 @@ namespace syndicated
 	pros::Motor *flywheel;
 	pros::Motor *expansion;
 
-	HolonomicXDrive *drivetrain;
+	pros::Motor *driveFrontLeft;
+	pros::Motor *driveFrontRight;
+	pros::Motor *driveMidRight;
+	pros::Motor *driveBackRight;
+	pros::Motor *driveBackLeft;
+	pros::Motor *driveMidLeft;
+
+	StarDrive *drivetrain;
 	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
 
 	double imuDriftPerMsec;
@@ -119,7 +127,16 @@ void initialize()
 	pros::delay(160);
 	imuDriftPerMsec = (imu->get_heading() - startHeading) / 160.0;
 
-	drivetrain = new HolonomicXDrive(DRIVE_FL_PORT, DRIVE_FR_PORT, DRIVE_BR_PORT, DRIVE_BL_PORT, IMU_PORT);
+	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT);
+	driveFrontRight = new pros::Motor(DRIVE_FR_PORT);
+	driveBackRight = new pros::Motor(DRIVE_BR_PORT);
+	driveBackLeft = new pros::Motor(DRIVE_BL_PORT);
+
+	driveMidRight = new PTOMotor(DRIVE_ML_PORT);
+	driveMidRight = new PTOMotor(DRIVE_MR_PORT);
+
+	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
+							   driveBackLeft, driveMidLeft, odometry);
 
 	intake = new pros::Motor(INTAKE_PORT);
 	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
@@ -494,10 +511,10 @@ void opcontrol()
 			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
 		}
 
-		handleIntakeControls();
-		handleFlywheelControls();
-		handleIndexer();
-		handleExpansionControls();
+		//handleIntakeControls();
+		//handleFlywheelControls();
+		//handleIndexer();
+		//handleExpansionControls();
 
 		handleHeadingReset();
 
