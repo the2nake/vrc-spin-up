@@ -425,6 +425,19 @@ void handleExpansionControls()
 	}
 }
 
+void handlePTOControls()
+{
+	using namespace syndicated;
+
+	if (controller->get_digital_new_press(DIGITAL_B))
+	{
+		PTOMotor* mr_ptr = dynamic_cast<PTOMotor*>(driveMidRight);
+		PTOMotor* ml_ptr = dynamic_cast<PTOMotor*>(driveMidLeft);
+		mr_ptr->set_pto_mode(!mr_ptr->get_pto_mode());
+		ml_ptr->set_pto_mode(!ml_ptr->get_pto_mode());
+	}
+}
+
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -511,10 +524,11 @@ void opcontrol()
 			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
 		}
 
-		//handleIntakeControls();
-		//handleFlywheelControls();
-		//handleIndexer();
-		//handleExpansionControls();
+		handlePTOControls();
+		// handleIntakeControls();
+		// handleFlywheelControls();
+		// handleIndexer();
+		// handleExpansionControls();
 
 		handleHeadingReset();
 

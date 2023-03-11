@@ -20,6 +20,8 @@
 #define DRIVE_BL_PORT 8
 #define DRIVE_ML_PORT 9
 
+#define PTO_PORT 'G'
+
 #define IMU_PORT 19
 
 #define INDEXER_PORT 20
