@@ -83,7 +83,7 @@ void APS::updateAbsolutePosition()
 
     double dH = newHeading - oldHeading;
     double dX = dS / dH - sOS;
-    double dY = dR / dH + sOR;
+    double dY = (dR / dH + sOR + dL / dH + sLO) / 2.0;
 
     dX *= 2 * sinDeg(dH / 2.0);
     dY *= 2 * sinDeg(dH / 2.0);
