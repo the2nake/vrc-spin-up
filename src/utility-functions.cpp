@@ -12,15 +12,21 @@
 #include "main.h"
 
 /**
- * A function to calculate the modulo of a double
+ * A function to calculate the modulo of a double, assuming b >= 0
+ * 
+ * Returns a when b = 0
  */
 double findMod(double a, double b)
 {
+    if (b == 0) {
+        return a;
+    }
+
     while (a < 0) {
         a += b;
     }
 
-    while (a > b) {
+    while (a >= b) {
         a -= b;
     }
 
