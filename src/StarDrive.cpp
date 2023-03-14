@@ -22,7 +22,7 @@ void StarDrive::drive(double translationVelocity, double translationHeading)
     this->driveAndTurn(translationVelocity, translationHeading, 0);
 }
 
-void StarDrive::driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading)
+void StarDrive::driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading, double threshold)
 {
     double currentHeading = this->odometry->getAbsolutePosition().heading;
     // sanitse data
@@ -40,13 +40,13 @@ void StarDrive::driveAndMaintainHeading(double translationVelocity, double trans
         delta = -deltaRight - 360.0;
     }
     double output = 0.0;
-    if (delta > 0)
+    if (delta > std::abs(threshold))
     {
-        output = sinDeg(std::min(90.0, delta)); // sine function, max velocity if delta >= 90
+        output = std::min(sinDeg(std::min(90.0, delta)), 0.1); // sine function, max velocity if delta >= 90
     }
-    else if (delta < 0)
+    else if (delta < -std::abs(threshold))
     {
-        output = sinDeg(std::max(delta, -90.0)); // sine is an odd function, so will result in a negative turn
+        output = std::max(sinDeg(std::max(delta, -90.0)), -0.1); // sine is an odd function, so will result in a negative turn
     }
     this->driveAndTurn(translationVelocity, translationHeading, output);
 }

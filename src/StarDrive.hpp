@@ -10,7 +10,14 @@ public:
     StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Motor *midRight, pros::Motor *backRight, pros::Motor*backLeft, pros::Motor *midLeft, APS* odometry);
 
     void drive(double translationVelocity, double translationHeading) override;
-    void driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading);
+
+    /**
+     * Drives along the translation vector, attempting to maintain a heading of rotationHeading
+     * 
+     * Will only devote, at maximum, 9% of the drivetrain's power to maintaining the angle
+     * Optionally has a threshold argument to avoid overcompensation
+    */
+    void driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading, double threshold = 0.5);
 
     void driveAndTurn(double translationVelocity, double translationHeading, double rotationVelocity) override;
 
