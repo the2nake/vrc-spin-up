@@ -3,7 +3,7 @@
  * Author: home.vn2007@gmail.com
  * Copyright (c) 2023 by home.vn2007@gmail.com
  * All rights reserved
-*/
+ */
 
 #include "utility-functions.hpp"
 
@@ -13,21 +13,24 @@
 
 /**
  * A function to calculate the modulo of a double, assuming b >= 0
- * 
+ *
  * Returns a when b = 0
  */
 double findMod(double a, double b)
 {
-    if (b == 0) {
+    if (b == 0)
+    {
         return a;
     }
 
-    while (a < 0) {
-        a += b;
+    if (a < 0)
+    {
+        return findMod(a + b, b);
     }
 
-    while (a >= b) {
-        a -= b;
+    if (a >= b)
+    {
+        return findMod(a - b, b);
     }
 
     return a;
@@ -59,10 +62,10 @@ double atanDeg(double val)
 
 /**
  * Gets a pair of polar coordinates from a set of cartesian coordinates
- * 
+ *
  * @param x Cartesian x-coordinate
  * @param y Cartesian y-coordinate
- * 
+ *
  * @returns Returns a polarPoint
  */
 polarPoint polarFromCartesian(double x, double y)
