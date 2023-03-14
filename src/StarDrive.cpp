@@ -24,6 +24,7 @@ void StarDrive::drive(double translationVelocity, double translationHeading)
 
 void StarDrive::driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading)
 {
+    this->driveAndTurn(translationVelocity, translationHeading, 0);
 }
 
 void StarDrive::driveAndTurn(double translationVelocity, double translationHeading, double rotationVelocity)
