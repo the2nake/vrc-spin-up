@@ -24,7 +24,31 @@ void StarDrive::drive(double translationVelocity, double translationHeading)
 
 void StarDrive::driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading)
 {
-    this->driveAndTurn(translationVelocity, translationHeading, 0);
+    double currentHeading = this->odometry->getAbsolutePosition().heading;
+    // sanitse data
+    currentHeading = findMod(currentHeading, 360.0);
+    rotationHeading = findMod(rotationHeading, 360.0);
+    // calculate angle to turn right and left
+    double deltaRight = findMod(rotationHeading - currentHeading, 360.0);
+    double delta = 0.0;
+    if (deltaRight > 180.0)
+    {
+        delta = deltaRight;
+    }
+    else
+    {
+        delta = -deltaRight - 360.0;
+    }
+    double output = 0.0;
+    if (delta > 0)
+    {
+        output = sinDeg(std::min(90.0, delta)); // sine function, max velocity if delta >= 90
+    }
+    else if (delta < 0)
+    {
+        output = sinDeg(std::max(delta, -90.0)); // sine is an odd function, so will result in a negative turn
+    }
+    this->driveAndTurn(translationVelocity, translationHeading, output);
 }
 
 void StarDrive::driveAndTurn(double translationVelocity, double translationHeading, double rotationVelocity)
