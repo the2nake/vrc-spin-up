@@ -26,7 +26,6 @@ namespace syndicated
 {
 	pros::Controller *controller;
 
-	pros::Motor *intake;
 	pros::Motor *flywheel;
 
 	pros::Motor *driveFrontLeft;
@@ -113,9 +112,6 @@ void initialize()
 	/**
 	 * ================================
 	 */
-
-	intake = new pros::Motor(INTAKE_PORT);
-	intake->set_brake_mode(MOTOR_BRAKE_BRAKE);
 	flywheel = new pros::Motor(FLYWHEEL_PORT, true);
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
@@ -185,17 +181,26 @@ void handleIntakeControls()
 {
 	using namespace syndicated;
 
+	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+
 	if (controller->get_digital(DIGITAL_R1))
 	{
-		intake->move_velocity(200 * intakeSpeed);
+		// reverse is intake (because of geartrain)
+		ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+		mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
 	}
 	else if (controller->get_digital(DIGITAL_R2))
 	{
-		intake->move(-127.0 * intakeSpeed);
+		// forward is remove/index (because of geartrain)
+		ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+		mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
 	}
 	else
 	{
-		intake->brake();
+		// brake the motor only if the drivetrain is not controlling the motor
+		ml_ptr->brake_if_pto();
+		mr_ptr->brake_if_pto();
 	}
 }
 
@@ -320,9 +325,7 @@ void opcontrol()
 		}
 		else if (std::abs(clx) < 0.01)
 		{
-			// use a PID controller
-			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
-			// drivetrain->driveAndMaintainHeading(translationVector.rho, 90-translationVector.theta, headingToMaintain);
+			drivetrain->driveAndMaintainHeading(translationVector.rho, 90 - translationVector.theta, headingToMaintain);
 		}
 		else
 		{
@@ -330,7 +333,7 @@ void opcontrol()
 		}
 
 		handlePTOControls();
-		// handleIntakeControls();
+		handleIntakeControls();
 		// handleFlywheelControls();
 
 		handleHeadingReset();
