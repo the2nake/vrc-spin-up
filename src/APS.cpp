@@ -82,16 +82,16 @@ void APS::updateAbsolutePosition()
     // dX is the along the axis perpendicular to that
 
     double dH = newHeading - oldHeading;
-    double dX = dS / dH + sOS;
-    double dY = (dR / dH + sOR + dL / dH + sLO) / 2.0;
+    double dX = 180.0 * dS / (dH * 3.141592) - sOS;
+    double dY = (180.0 * dR / (dH * 3.141592) + sOR + 180.0 * dL / (dH * 3.141592) + sLO) / 2.0;
 
-    dX *= 2 * sinDeg(dH / 2.0);
+    dX *= 2 * sinDeg(dH / 2.0); 
     dY *= 2 * sinDeg(dH / 2.0);
 
     // use a rotation matrix on dX and dY, anticlockwise dH degrees
 
-    dX = dX * cosDeg(dH) - dY * sinDeg(dH);
-    dY = dX * sinDeg(dH) + dY * cosDeg(dH);
+    dX = dX * cosDeg(newHeading) - dY * sinDeg(newHeading);
+    dY = dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
 
     // make sure nothing reads or writes from these variables
     // setting a few variables should never take more than one update cycle
