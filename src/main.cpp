@@ -98,7 +98,7 @@ void initialize()
 	startingOnRoller = false;
 	soloAuton = false;
 
-	APSUpdateFrequency = 160;
+	APSUpdateFrequency = 100;
 	targetCycleTime = 40;
 
 	indexerSpeed = 0.5;
