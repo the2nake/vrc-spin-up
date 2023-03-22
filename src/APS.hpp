@@ -43,13 +43,16 @@ public:
      * @param rightEncoderConfig Configuration of the right encoder. Make sure that positive returned values indicate forward motion.
      * @param strafeEncoderConfig Configuration of the back encoder. Make sure that positive returned values indicate rightward motion.
      *
-     * @param wheelSize Diameter of the odometry wheels in inches. One of 2.75, 3.25, or 4.0
      * @param sLO X position of the back encoder wheel, relative to the left encoder wheel, in inches;
      * @param sOR X position of the right encoder wheel, relative to the back encoder wheel, in inches;
      * @param sOS Y position of the back encoder wheel, relative to the left and right encoder wheels, in inches;
+     * @param wheelSizes Diameter of the odometry wheels in inches. One of 2.75, 3.25, or 4.0
+     * 
+     * @param imu An optional parameter to use an inertial measurement unit for the heading calculation
+     * @param imuWeight How much weight to put into the IMU's measurements. From 0.0 to 1.0, including 1.0 but not 0.0
      */
     APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig, double sLO, double sOR,
-        double sOS, odomConfig wheelSizes);
+        double sOS, odomConfig wheelSizes, pros::Imu* imu = nullptr, double imuWeight = 0.5);
     ~APS();
 
     /**
@@ -78,4 +81,7 @@ private:
     int prevLeftEncVal = 0.0;
     int prevRightEncVal = 0.0;
     int prevStrafeEncVal = 0.0;
+
+    pros::Imu *imu = nullptr;
+    double imuWeight = 0.0;
 };

@@ -11,7 +11,7 @@
 #include "utility-functions.hpp"
 
 APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig,
-         double sLO, double sOR, double sOS, odomConfig wheelSizes)
+         double sLO, double sOR, double sOS, odomConfig wheelSizes, pros::Imu *imu, double imuWeight)
 {
     this->leftEnc = new pros::ADIEncoder(leftEncoderConfig.topPort, leftEncoderConfig.bottomPort, leftEncoderConfig.reversed);
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
@@ -23,6 +23,17 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     this->sLO = sLO;
     this->sOR = sOR;
     this->sOS = sOS;
+
+    if (imu != nullptr)
+    {
+        this->imu = imu;
+        this->imuWeight = imuWeight;
+    }
+    else
+    {
+        this->imu = nullptr;
+        this->imuWeight = 0.0;
+    }
 }
 
 APS::~APS()
@@ -41,6 +52,10 @@ void APS::setAbsolutePosition(double x, double y, double heading)
     this->leftEnc->reset();
     this->rightEnc->reset();
     this->strafeEnc->reset();
+
+    if (this->imu != nullptr) {
+        this->imu->tare_heading();
+    }
 
     if (x != APS_NO_CHANGE)
     {
@@ -76,7 +91,10 @@ void APS::updateAbsolutePosition()
 
     // calculated as an absolute quantity
     double newHeading = (180 / 3.141592) * ((currLeftEncVal / 360.0) * this->leftWheelSize - (currRightEncVal / 360.0) * this->rightWheelSize) / (this->sLO + this->sOR);
-
+    if (0 < this->imuWeight && this->imuWeight < 1)
+    {
+        newHeading = (newHeading * (1 - this->imuWeight) + this->imuWeight * this->imu->get_heading());
+    }
     // find dX, dY, dH from dL, dR, and dS
     // dY is the along the axis from the previous position to this position
     // dX is the along the axis perpendicular to that
@@ -85,7 +103,7 @@ void APS::updateAbsolutePosition()
     double dX = 180.0 * dS / (dH * 3.141592) - sOS;
     double dY = (180.0 * dR / (dH * 3.141592) + sOR + 180.0 * dL / (dH * 3.141592) + sLO) / 2.0;
 
-    dX *= 2 * sinDeg(dH / 2.0); 
+    dX *= 2 * sinDeg(dH / 2.0);
     dY *= 2 * sinDeg(dH / 2.0);
 
     // use a rotation matrix on dX and dY, anticlockwise dH degrees
@@ -93,14 +111,14 @@ void APS::updateAbsolutePosition()
     dX = dX * cosDeg(newHeading) - dY * sinDeg(newHeading);
     dY = dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
 
-    // make sure nothing reads or writes from these variables
+    // make sure nothing writes to these variables
     // setting a few variables should never take more than one update cycle
     while (!this->positionDataMutex.take(5))
     {
     }
     this->absX = this->absX + dX;
     this->absY = this->absY + dY;
-    this->absHeading = this->absHeading + dH;
+    this->absHeading = newHeading;
     this->positionDataMutex.give();
 
     this->prevLeftEncVal = currLeftEncVal;

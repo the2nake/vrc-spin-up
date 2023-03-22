@@ -39,6 +39,8 @@ namespace syndicated
 	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
 
 	pros::ADIDigitalOut *pto;
+	
+	pros::Imu *imu;
 
 	double intakeSpeed;
 	double flywheelSpeed;	  // overall percentage
@@ -123,8 +125,10 @@ void initialize()
 
 	trueTimeElapsed = targetCycleTime;
 
+	imu = new pros::Imu(IMU_PORT);
+
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
-	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75});
+	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75}, imu, 1.0);
 
 	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT);
 	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, 1);
