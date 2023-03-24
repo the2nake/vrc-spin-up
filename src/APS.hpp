@@ -49,7 +49,7 @@ public:
      * @param wheelSizes Diameter of the odometry wheels in inches. One of 2.75, 3.25, or 4.0
      * 
      * @param imu An optional parameter to use an inertial measurement unit for the heading calculation
-     * @param imuWeight How much weight to put into the IMU's measurements. From 0.0 to 1.0, including 1.0 but not 0.0
+     * @param imuWeight How much weight to put into the IMU's measurements. From 0.0 to 1.0.
      */
     APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig, double sLO, double sOR,
         double sOS, odomConfig wheelSizes, pros::Imu* imu = nullptr, double imuWeight = 0.5);

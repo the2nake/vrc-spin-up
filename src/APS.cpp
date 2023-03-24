@@ -91,7 +91,7 @@ void APS::updateAbsolutePosition()
 
     // calculated as an absolute quantity
     double newHeading = (180 / 3.141592) * ((currLeftEncVal / 360.0) * this->leftWheelSize - (currRightEncVal / 360.0) * this->rightWheelSize) / (this->sLO + this->sOR);
-    if (0 < this->imuWeight && this->imuWeight < 1)
+    if (0 < this->imuWeight && this->imuWeight <= 1)
     {
         newHeading = (newHeading * (1 - this->imuWeight) + this->imuWeight * this->imu->get_heading());
     }
