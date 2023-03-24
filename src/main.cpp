@@ -66,6 +66,8 @@ namespace syndicated
 	int APSUpdateFrequency; // in Hz
 
 	bool ptoIsOn;
+	double ptoMaxDriveRPM;
+	double baseMaxDriveRPM;
 };
 
 void updateAPSTask(void *param)
@@ -110,6 +112,9 @@ void initialize()
 	flywheelIdleSpeed = 0 / flywheelSpeed;
 
 	intakeSpeed = 1.0;
+
+	ptoMaxDriveRPM = 600.0;
+	baseMaxDriveRPM = 300.0;
 
 	/**
 	 * ================================
@@ -268,11 +273,13 @@ void handlePTOControls()
 	if (controller->get_digital_new_press(DIGITAL_B))
 	{
 		ptoIsOn = !ptoIsOn;
+
 		PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
 		PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
 		pto->set_value(ptoIsOn);
 		mr_ptr->set_pto_mode(ptoIsOn);
 		ml_ptr->set_pto_mode(ptoIsOn);
+		drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
 	}
 }
 

@@ -130,11 +130,11 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
         PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
         if (cast_ptr != nullptr)
         {
-            cast_ptr->move_velocity(min_mult * velocities[i]);
+            cast_ptr->move_velocity(std::min(this->maxRPM, min_mult * velocities[i]));
         }
         else
         {
-            m->move_velocity(min_mult * velocities[i]);
+            m->move_velocity(std::min(this->maxRPM, min_mult * velocities[i]));
         }
         i++;
     }
@@ -145,9 +145,10 @@ void StarDrive::setBrakeMode(pros::motor_brake_mode_e_t mode)
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
     {
-        if (dynamic_cast<PTOMotor *>(m) != nullptr)
+        PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
+        if (cast_ptr != nullptr)
         {
-            dynamic_cast<PTOMotor *>(m)->set_brake_mode(mode);
+            cast_ptr->set_brake_mode(mode);
         }
         else
         {
@@ -162,9 +163,10 @@ void StarDrive::brake()
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
     {
-        if (dynamic_cast<PTOMotor *>(m) != nullptr)
+        PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
+        if (cast_ptr != nullptr)
         {
-            dynamic_cast<PTOMotor *>(m)->brake();
+            cast_ptr->brake();
         }
         else
         {
@@ -172,4 +174,17 @@ void StarDrive::brake()
         }
         i++;
     }
+}
+
+void StarDrive::setMaxRPM(double rpm)
+{
+    if (rpm > 0 && rpm < 600)
+    {
+        this->maxRPM = rpm;
+    }
+}
+
+double StarDrive::getMaxRPM()
+{
+    return this->maxRPM;
 }

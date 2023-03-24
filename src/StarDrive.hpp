@@ -24,6 +24,9 @@ public:
     void setBrakeMode(pros::motor_brake_mode_e_t mode) override;
     void brake() override;
 
+    void setMaxRPM(double rpm);
+    double getMaxRPM();
+
 private:
     pros::Motor *frontLeft;
     pros::Motor *frontRight;
@@ -35,4 +38,6 @@ private:
     bool isPTO[6] = {false, false, false, false, false, false};
 
     APS* odometry;
+    
+    double maxRPM = 600.0;
 };
