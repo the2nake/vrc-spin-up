@@ -130,11 +130,11 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
         PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
         if (cast_ptr != nullptr)
         {
-            cast_ptr->move_velocity(std::min(this->maxRPM, min_mult * velocities[i]));
+            cast_ptr->move_velocity(std::min(min_mult, this->maxRPM * velocities[i]));
         }
         else
         {
-            m->move_velocity(std::min(this->maxRPM, min_mult * velocities[i]));
+            m->move_velocity(std::min(min_mult, this->maxRPM * velocities[i]));
         }
         i++;
     }

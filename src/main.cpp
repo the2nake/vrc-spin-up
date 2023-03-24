@@ -114,7 +114,7 @@ void initialize()
 	intakeSpeed = 1.0;
 
 	ptoMaxDriveRPM = 600.0;
-	baseMaxDriveRPM = 300.0;
+	baseMaxDriveRPM = 200.0;
 
 	/**
 	 * ================================
@@ -145,6 +145,7 @@ void initialize()
 
 	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
 							   driveBackLeft, driveMidLeft, odometry);
+	drivetrain->setBrakeMode(MOTOR_BRAKE_BRAKE);
 
 	ptoIsOn = false;
 	pto = new pros::ADIDigitalOut(PTO_PORT);
