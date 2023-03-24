@@ -39,7 +39,7 @@ namespace syndicated
 	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
 
 	pros::ADIDigitalOut *pto;
-	
+
 	pros::Imu *imu;
 
 	double intakeSpeed;
@@ -130,13 +130,13 @@ void initialize()
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75}, imu, 1.0);
 
-	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT);
-	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, 1);
-	driveBackRight = new pros::Motor(DRIVE_BR_PORT, 1);
-	driveBackLeft = new pros::Motor(DRIVE_BL_PORT);
+	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT, MOTOR_GEAR_BLUE, 0);
+	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, MOTOR_GEAR_BLUE, 1);
+	driveBackRight = new pros::Motor(DRIVE_BR_PORT, MOTOR_GEAR_BLUE, 1);
+	driveBackLeft = new pros::Motor(DRIVE_BL_PORT, MOTOR_GEAR_BLUE, 0);
 
-	driveMidLeft = new PTOMotor(DRIVE_ML_PORT);
-	driveMidRight = new PTOMotor(DRIVE_MR_PORT, 1);
+	driveMidLeft = new PTOMotor(DRIVE_ML_PORT, MOTOR_GEAR_GREEN, 0);
+	driveMidRight = new PTOMotor(DRIVE_MR_PORT, MOTOR_GEAR_GREEN, 1);
 
 	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
 							   driveBackLeft, driveMidLeft, odometry);

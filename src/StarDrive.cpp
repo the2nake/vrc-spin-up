@@ -82,18 +82,59 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
     double vML = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) + 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
     double vMR = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) - 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
 
-    double velocities[] = {200.0 * vFL, 200.0 * vFR, 200.0 * vMR, 200.0 * vBR, 200.0 * vBL, 200.0 * vML};
+    double velocities[] = {vFL, vFR, vMR, vBR, vBL, vML};
+    double min_mult = 600.0;
 
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
     {
-        if (dynamic_cast<PTOMotor *>(m) != nullptr)
+        PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
+        if (cast_ptr != nullptr)
         {
-            dynamic_cast<PTOMotor *>(m)->move_velocity(velocities[i]);
+            double mult = 100.0;
+            if (cast_ptr->get_gearing() == MOTOR_GEAR_200)
+            {
+                mult = 200.0;
+            }
+            else if (cast_ptr->get_gearing() == MOTOR_GEAR_600 || cast_ptr->get_pto_mode())
+            {
+                mult = 600.0;
+            }
+            if (mult < min_mult)
+            {
+                min_mult = mult;
+            }
         }
         else
         {
-            m->move_velocity(velocities[i]);
+            double mult = 100.0;
+            if (m->get_gearing() == MOTOR_GEAR_200)
+            {
+                mult = 200.0;
+            }
+            else if (m->get_gearing() == MOTOR_GEAR_600)
+            {
+                mult = 600.0;
+            }
+            if (mult < min_mult)
+            {
+                min_mult = mult;
+            }
+        }
+        i++;
+    }
+
+    i = 0;
+    for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
+    {
+        PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
+        if (cast_ptr != nullptr)
+        {
+            cast_ptr->move_velocity(min_mult * velocities[i]);
+        }
+        else
+        {
+            m->move_velocity(min_mult * velocities[i]);
         }
         i++;
     }

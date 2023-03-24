@@ -5,7 +5,7 @@
 class PTOMotor : public pros::Motor
 {
 public:
-    PTOMotor(const std::int8_t port, const bool reverse = false, const pros::motor_gearset_e_t gearset = MOTOR_GEAR_GREEN,
+    PTOMotor(const std::int8_t port, const pros::motor_gearset_e_t gearset = MOTOR_GEAR_GREEN, const bool reverse = false,
              const pros::motor_encoder_units_e_t encoder_units = MOTOR_ENCODER_DEGREES);
     ~PTOMotor();
 
