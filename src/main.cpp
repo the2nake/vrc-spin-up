@@ -113,7 +113,7 @@ void initialize()
 
 	intakeSpeed = 1.0;
 
-	ptoMaxDriveRPM = 600.0;
+	ptoMaxDriveRPM = 400.0;
 	baseMaxDriveRPM = 200.0;
 
 	/**
