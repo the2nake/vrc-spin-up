@@ -83,7 +83,7 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
     double vMR = cosDeg(theta) * translationSpeed * translationSpeed / (translationSpeed + rotationSpeed) - 0.70710678118 * rotationDirection * rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
 
     double velocities[] = {vFL, vFR, vMR, vBR, vBL, vML};
-    double min_mult = 600.0;
+    double min_max_rpm = 600.0;
 
     int i = 0;
     for (auto m : {frontLeft, frontRight, midRight, backRight, backLeft, midLeft})
@@ -100,9 +100,9 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
             {
                 mult = 600.0;
             }
-            if (mult < min_mult)
+            if (mult < min_max_rpm)
             {
-                min_mult = mult;
+                min_max_rpm = mult;
             }
         }
         else
@@ -116,9 +116,9 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
             {
                 mult = 600.0;
             }
-            if (mult < min_mult)
+            if (mult < min_max_rpm)
             {
-                min_mult = mult;
+                min_max_rpm = mult;
             }
         }
         i++;
@@ -130,11 +130,11 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
         PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
         if (cast_ptr != nullptr)
         {
-            cast_ptr->move_velocity(std::min(min_mult, this->maxRPM * velocities[i]));
+            cast_ptr->move_velocity(std::min(min_max_rpm, this->maxRPM * velocities[i]));
         }
         else
         {
-            m->move_velocity(std::min(min_mult, this->maxRPM * velocities[i]));
+            m->move_velocity(std::min(min_max_rpm, this->maxRPM * velocities[i]));
         }
         i++;
     }
