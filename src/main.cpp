@@ -236,7 +236,7 @@ void handleFlywheelControls()
 		double target = 600.0 * flywheelSpeed; // proportion of 600 rpm
 		double actualVelocity = flywheel->get_actual_velocity();
 		double error = target - actualVelocity;
-		double kP = 1.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
+		double kP = 3.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
 		syndicated::flywheelVelocityIntegral *= 0.9;
 		syndicated::flywheelVelocityIntegral += error * syndicated::trueTimeElapsed;
 		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error))
@@ -247,7 +247,7 @@ void handleFlywheelControls()
 		}
 		double derivative = (error - syndicated::prevFlywheelVelocityError) / syndicated::trueTimeElapsed;
 		double power = error * kP + syndicated::flywheelVelocityIntegral * kI + derivative * kD;
-		flywheel->move(std::max(127.0 * power / 600.0, 0.0));
+		flywheel->move(std::min(std::max(127.0 * power / 600.0, 0.0), 127.0));
 		syndicated::prevFlywheelVelocityError = error;
 	}
 	else
