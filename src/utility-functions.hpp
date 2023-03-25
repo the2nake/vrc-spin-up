@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include "main.h"
+
 /**
  * A function to calculate the modulo of a double
  */
