@@ -28,6 +28,8 @@ namespace syndicated
 
 	pros::Motor *flywheel;
 
+	pros::Motor *indexer;
+
 	pros::Motor *driveFrontLeft;
 	pros::Motor *driveFrontRight;
 	pros::Motor *driveMidRight;
@@ -68,6 +70,12 @@ namespace syndicated
 	bool ptoIsOn;
 	double ptoMaxDriveRPM;
 	double baseMaxDriveRPM;
+
+	int indexerBuffer;
+	int indexerBufferMax;
+	double indexerTravel;
+	double indexerTolerance;
+	bool indexerRetracting;
 };
 
 void updateAPSTask(void *param)
@@ -105,7 +113,10 @@ void initialize()
 	APSUpdateFrequency = 100;
 	targetCycleTime = 40;
 
-	indexerSpeed = 0.5;
+	indexerSpeed = 1.0;
+	indexerTravel = 45.0;
+	indexerTolerance = 1.0;
+	indexerBufferMax = 2;
 
 	flywheelAlwaysOn = false;
 	flywheelSpeed = 0.60;
@@ -152,6 +163,12 @@ void initialize()
 	pto = new pros::ADIDigitalOut(PTO_PORT);
 	dynamic_cast<PTOMotor *>(driveMidLeft)->set_pto_mode(false);
 	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(false);
+
+	indexer = new pros::Motor(INDEXER_PORT, MOTOR_GEAR_BLUE, 0, MOTOR_ENCODER_DEGREES);
+	indexerBuffer = 0;
+	indexer->tare_position();
+	indexer->move_absolute(0.0, indexerSpeed * rpmFromGearset(indexer->get_gearing()));
+	indexerRetracting = false;
 }
 
 /**
@@ -197,21 +214,54 @@ void handleIntakeControls()
 
 	if (controller->get_digital(DIGITAL_R1))
 	{
-		// reverse is intake (because of geartrain)
-		ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
-		mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+		ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+		mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
 	}
 	else if (controller->get_digital(DIGITAL_R2))
 	{
-		// forward is remove/index (because of geartrain)
-		ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
-		mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+		ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+		mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
 	}
 	else
 	{
 		// brake the motor only if the drivetrain is not controlling the motor
 		ml_ptr->brake_if_pto();
 		mr_ptr->brake_if_pto();
+	}
+}
+
+void handleIndexerControls()
+{
+	using namespace syndicated;
+
+	if (controller->get_digital_new_press(DIGITAL_L1))
+	{
+		if (indexerBuffer < indexerBufferMax)
+		{
+			indexerBuffer++;
+		}
+	}
+
+	double indexerRPM = indexerSpeed * rpmFromGearset(indexer->get_gearing());
+	if (indexerRetracting)
+	{ // let the indexer move back
+		if (std::abs(indexer->get_position()) < indexerTolerance)
+		{
+			indexerRetracting = false;
+		}
+	}
+	else if (indexerBuffer > 0)
+	{ // indexer is either shooting forward, needs to retract, or ready
+		if (std::abs(indexer->get_position()) < indexerTolerance)
+		{ // if indexer is ready
+			indexerBuffer--;
+			indexer->move_absolute(indexerTravel, indexerRPM);
+		}
+		else if (indexer->get_target_position() == indexerTravel && std::abs(indexer->get_position() - indexerTravel) < indexerTolerance)
+		{ // if the indexer needs to retract
+			indexer->move_absolute(0.0, indexerRPM);
+			indexerRetracting = true;
+		}
 	}
 }
 
@@ -347,6 +397,7 @@ void opcontrol()
 
 		handlePTOControls();
 		handleIntakeControls();
+		handleIndexerControls();
 		// handleFlywheelControls();
 
 		handleHeadingReset();
