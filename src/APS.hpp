@@ -84,4 +84,6 @@ private:
 
     pros::Imu *imu = nullptr;
     double imuWeight = 0.0;
+
+    bool encodersDisabled = false;
 };

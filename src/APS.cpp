@@ -17,11 +17,10 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
     this->strafeEnc = new pros::ADIEncoder(strafeEncoderConfig.topPort, strafeEncoderConfig.bottomPort, strafeEncoderConfig.reversed);
 
-    bool encoders_disabled = false;
     if (errno == ENXIO || errno == ENODEV)
     {
         this->imuWeight = 1.0;
-        encoders_disabled = true;
+        this->encodersDisabled = true;
     }
 
     this->leftWheelSize = wheelSizes.leftWheelSize * 3.141592;
@@ -34,14 +33,14 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     if (imu != nullptr)
     {
         this->imu = imu;
-        if (!encoders_disabled)
+        if (!this->encodersDisabled)
         {
             this->imuWeight = imuWeight;
         }
     }
     else
     {
-        if (encoders_disabled)
+        if (this->encodersDisabled)
         {
             pros::screen::print(TEXT_LARGE_CENTER, 3, "APS Module Malfunction"); // TODO: file bug in pros kernel to fix TEXT_LARGE_CENTER macro
         }
@@ -63,9 +62,12 @@ void APS::setAbsolutePosition(double x, double y, double heading)
     {
     }
 
-    this->leftEnc->reset();
-    this->rightEnc->reset();
-    this->strafeEnc->reset();
+    if (!this->encodersDisabled)
+    {
+        this->leftEnc->reset();
+        this->rightEnc->reset();
+        this->strafeEnc->reset();
+    }
 
     if (x != APS_NO_CHANGE)
     {
@@ -93,6 +95,24 @@ void APS::updateAbsolutePosition()
     /**
      * This function should be called at least once every 10 milliseconds for sufficient accuracy
      */
+
+    if (this->encodersDisabled)
+    {
+        if (imuWeight == 0.0)
+        {
+            return;
+        }
+        else
+        {
+            while (!this->positionDataMutex.take(5))
+            {
+            }
+            this->absHeading = imu->get_heading();
+            this->positionDataMutex.give();
+        }
+        return;
+    }
+
     int currLeftEncVal = this->leftEnc->get_value();
     int currRightEncVal = this->rightEnc->get_value();
     int currStrafeEncVal = this->strafeEnc->get_value();
