@@ -17,6 +17,13 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
     this->strafeEnc = new pros::ADIEncoder(strafeEncoderConfig.topPort, strafeEncoderConfig.bottomPort, strafeEncoderConfig.reversed);
 
+    bool encoders_disabled = false;
+    if (errno == ENXIO || errno == ENODEV)
+    {
+        this->imuWeight = 1.0;
+        encoders_disabled = true;
+    }
+
     this->leftWheelSize = wheelSizes.leftWheelSize * 3.141592;
     this->rightWheelSize = wheelSizes.rightWheelSize * 3.141592;
     this->strafeWheelSize = wheelSizes.strafeWheelSize * 3.141592;
@@ -27,10 +34,17 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
     if (imu != nullptr)
     {
         this->imu = imu;
-        this->imuWeight = imuWeight;
+        if (!encoders_disabled)
+        {
+            this->imuWeight = imuWeight;
+        }
     }
     else
     {
+        if (encoders_disabled)
+        {
+            pros::screen::print(TEXT_LARGE_CENTER, 3, "APS Module Malfunction"); // TODO: file bug in pros kernel to fix TEXT_LARGE_CENTER macro
+        }
         this->imu = nullptr;
         this->imuWeight = 0.0;
     }
