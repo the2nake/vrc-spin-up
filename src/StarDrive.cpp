@@ -96,9 +96,13 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
             {
                 mult = 200.0;
             }
-            else if (cast_ptr->get_gearing() == MOTOR_GEAR_600 || cast_ptr->get_pto_mode())
+            else if (cast_ptr->get_gearing() == MOTOR_GEAR_600)
             {
                 mult = 600.0;
+            }
+            else if (cast_ptr->get_pto_mode())
+            {
+                continue;
             }
             if (mult < min_max_rpm)
             {
@@ -130,11 +134,11 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
         PTOMotor *cast_ptr = dynamic_cast<PTOMotor *>(m);
         if (cast_ptr != nullptr)
         {
-            cast_ptr->move_velocity(std::min(min_max_rpm, this->maxRPM * velocities[i]));
+            cast_ptr->move_velocity(std::min(min_max_rpm, (this->maxRPM * velocities[i]) * rpmFromGearset(cast_ptr->get_gearing()) / outputRPMs[i]));
         }
         else
         {
-            m->move_velocity(std::min(min_max_rpm, this->maxRPM * velocities[i]));
+            m->move_velocity(std::min(min_max_rpm, (this->maxRPM * velocities[i]) * rpmFromGearset(m->get_gearing()) / outputRPMs[i]));
         }
         i++;
     }
@@ -187,4 +191,17 @@ void StarDrive::setMaxRPM(double rpm)
 double StarDrive::getMaxRPM()
 {
     return this->maxRPM;
+}
+
+void StarDrive::setOutputRPMs(std::vector<double> rpms)
+{
+    if (rpms.size() == 6)
+    {
+        this->outputRPMs = rpms;
+    }
+}
+
+std::vector<double> StarDrive::getOutputRPMs()
+{
+    return this->outputRPMs;
 }

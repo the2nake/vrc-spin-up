@@ -42,3 +42,5 @@ struct polarPoint
  * @returns Returns a polarPoint
  */
 polarPoint polarFromCartesian(double x, double y);
+
+double rpmFromGearset(pros::motor_gearset_e_t gearing);

@@ -92,3 +92,22 @@ polarPoint polarFromCartesian(double x, double y)
 
     return point;
 }
+
+double rpmFromGearset(pros::motor_gearset_e_t gearing)
+{
+    switch (gearing)
+    {
+    case MOTOR_GEAR_100:
+        return 100.0;
+        break;
+    case MOTOR_GEAR_200:
+        return 200.0;
+        break;
+    case MOTOR_GEAR_600:
+        return 600.0;
+        break;
+    default:
+        return 0.0;
+        break;
+    }
+}

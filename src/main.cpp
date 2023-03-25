@@ -146,6 +146,7 @@ void initialize()
 	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
 							   driveBackLeft, driveMidLeft, odometry);
 	drivetrain->setBrakeMode(MOTOR_BRAKE_BRAKE);
+	drivetrain->setOutputRPMs({300.0, 300.0, 200.0, 300.0, 300.0, 200.0});
 
 	ptoIsOn = false;
 	pto = new pros::ADIDigitalOut(PTO_PORT);

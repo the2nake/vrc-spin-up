@@ -26,6 +26,9 @@ public:
 
     void setMaxRPM(double rpm);
     double getMaxRPM();
+    
+    void setOutputRPMs(std::vector<double> rpms);
+    std::vector<double> getOutputRPMs();
 
 private:
     pros::Motor *frontLeft;
@@ -35,9 +38,9 @@ private:
     pros::Motor *backLeft;
     pros::Motor *midLeft;
 
-    bool isPTO[6] = {false, false, false, false, false, false};
-
     APS* odometry;
     
     double maxRPM = 600.0;
+
+    std::vector<double> outputRPMs = {200.0, 200.0, 200.0, 200.0, 200.0, 200.0}; // modifiers representing external gearing
 };
