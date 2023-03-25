@@ -53,10 +53,6 @@ void APS::setAbsolutePosition(double x, double y, double heading)
     this->rightEnc->reset();
     this->strafeEnc->reset();
 
-    if (this->imu != nullptr) {
-        this->imu->tare_heading();
-    }
-
     if (x != APS_NO_CHANGE)
     {
         this->absX = x;
@@ -69,6 +65,10 @@ void APS::setAbsolutePosition(double x, double y, double heading)
     if (heading != APS_NO_CHANGE)
     {
         this->absHeading = heading;
+        if (this->imu != nullptr)
+        {
+            this->imu->set_heading(heading);
+        }
     }
 
     positionDataMutex.give();
