@@ -73,9 +73,6 @@ namespace syndicated
 
 	int indexerBuffer;
 	int indexerBufferMax;
-	double indexerTravel;
-	double indexerTolerance;
-	bool indexerRetracting;
 };
 
 void updateAPSTask(void *param)
@@ -114,8 +111,6 @@ void initialize()
 	targetCycleTime = 40;
 
 	indexerSpeed = 1.0;
-	indexerTravel = 45.0;
-	indexerTolerance = 1.0;
 	indexerBufferMax = 2;
 
 	flywheelAlwaysOn = false;
@@ -168,7 +163,6 @@ void initialize()
 	indexerBuffer = 0;
 	indexer->tare_position();
 	indexer->move_absolute(0.0, indexerSpeed * rpmFromGearset(indexer->get_gearing()));
-	indexerRetracting = false;
 }
 
 /**
@@ -234,34 +228,25 @@ void handleIndexerControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital_new_press(DIGITAL_L1))
+	if (controller->get_digital(DIGITAL_L1))
 	{
 		if (indexerBuffer < indexerBufferMax)
 		{
 			indexerBuffer++;
 		}
+		indexerBuffer = 1;
+	} else {
+		indexerBuffer = 0;
 	}
 
 	double indexerRPM = indexerSpeed * rpmFromGearset(indexer->get_gearing());
-	if (indexerRetracting)
-	{ // let the indexer move back
-		if (std::abs(indexer->get_position()) < indexerTolerance)
-		{
-			indexerRetracting = false;
-		}
+	if (indexerBuffer > 0)
+	{
+		indexer->move_velocity(indexerRPM);
 	}
-	else if (indexerBuffer > 0)
-	{ // indexer is either shooting forward, needs to retract, or ready
-		if (std::abs(indexer->get_position()) < indexerTolerance)
-		{ // if indexer is ready
-			indexerBuffer--;
-			indexer->move_absolute(indexerTravel, indexerRPM);
-		}
-		else if (indexer->get_target_position() == indexerTravel && std::abs(indexer->get_position() - indexerTravel) < indexerTolerance)
-		{ // if the indexer needs to retract
-			indexer->move_absolute(0.0, indexerRPM);
-			indexerRetracting = true;
-		}
+	else
+	{
+		indexer->brake();
 	}
 }
 
