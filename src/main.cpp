@@ -45,10 +45,11 @@ namespace syndicated
 	pros::Imu *imu;
 
 	double intakeSpeed;
+
 	double flywheelSpeed;	  // overall percentage
+	double flywheelSpeedFar;  // overall percentage
 	double flywheelIdleSpeed; // percentage of cross-court shot
 	bool flywheelAlwaysOn;
-	double indexerSpeed;
 
 	bool shotReady;
 	double timeSinceLastShot;
@@ -71,8 +72,20 @@ namespace syndicated
 	double ptoMaxDriveRPM;
 	double baseMaxDriveRPM;
 
-	int indexerBuffer;
-	int indexerBufferMax;
+	double indexerSpeed;
+	double indexerSpeedFar;
+	double indexerTravel;
+
+	bool farShooting;
+	bool shooting;
+
+	pros::controller_digital_e_t flywheelKeybind;
+	pros::controller_digital_e_t shootKeybind;
+	pros::controller_digital_e_t intakeKeybind;
+	pros::controller_digital_e_t outtakeKeybind;
+
+	pros::controller_digital_e_t farShootingToggleKeybind;
+	pros::controller_digital_e_t flywheelToggleKeybind;
 };
 
 void updateAPSTask(void *param)
@@ -104,23 +117,33 @@ void initialize()
 	 */
 
 	autonomousSkills = false;
-	startingOnRoller = false;
+	startingOnRoller = true;
 	soloAuton = false;
 
 	APSUpdateFrequency = 100;
 	targetCycleTime = 40;
 
-	indexerSpeed = 1.0;
-	indexerBufferMax = 2;
+	indexerSpeed = 0.2;
+	indexerSpeedFar = 0.2;
+	indexerTravel = 225.0;
 
 	flywheelAlwaysOn = false;
-	flywheelSpeed = 0.60;
+	flywheelSpeed = 0.6;
+	flywheelSpeedFar = 0.9;
 	flywheelIdleSpeed = 0 / flywheelSpeed;
 
 	intakeSpeed = 1.0;
 
 	ptoMaxDriveRPM = 360.0;
 	baseMaxDriveRPM = 200.0;
+
+	flywheelKeybind = DIGITAL_L1;
+	shootKeybind = DIGITAL_L2;
+	intakeKeybind = DIGITAL_R1;
+	outtakeKeybind = DIGITAL_R2;
+
+	farShootingToggleKeybind = DIGITAL_UP;
+	flywheelToggleKeybind = DIGITAL_LEFT;
 
 	/**
 	 * ================================
@@ -137,6 +160,11 @@ void initialize()
 	trueTimeElapsed = targetCycleTime;
 
 	imu = new pros::Imu(IMU_PORT);
+	imu->reset();
+	while (imu->is_calibrating())
+	{
+		pros::delay(20);
+	}
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75}, imu, 1.0);
@@ -160,9 +188,13 @@ void initialize()
 	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(false);
 
 	indexer = new pros::Motor(INDEXER_PORT, MOTOR_GEAR_BLUE, 0, MOTOR_ENCODER_DEGREES);
-	indexerBuffer = 0;
 	indexer->tare_position();
 	indexer->move_absolute(0.0, indexerSpeed * rpmFromGearset(indexer->get_gearing()));
+
+	farShooting = false;
+	shooting = false;
+
+	pros::delay(300);
 }
 
 /**
@@ -206,12 +238,12 @@ void handleIntakeControls()
 	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
 	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
 
-	if (controller->get_digital(DIGITAL_R1))
+	if (controller->get_digital(intakeKeybind))
 	{
 		ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
 		mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
 	}
-	else if (controller->get_digital(DIGITAL_R2))
+	else if (controller->get_digital(outtakeKeybind))
 	{
 		ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
 		mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
@@ -228,23 +260,23 @@ void handleIndexerControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital(DIGITAL_L1))
+	if (controller->get_digital_new_press(shootKeybind)) // should be get_digital_new_press
 	{
-		if (indexerBuffer < indexerBufferMax)
-		{
-			indexerBuffer++;
-		}
-		indexerBuffer = 1;
-	} else {
-		indexerBuffer = 0;
+		double indexerRPM = (farShooting ? indexerSpeedFar : indexerSpeed) * rpmFromGearset(indexer->get_gearing());
+		indexer->move_absolute((shooting ? indexer->get_target_position() : indexer->get_position()) + indexerTravel, indexerRPM);
+		shooting = true;
 	}
 
-	double indexerRPM = indexerSpeed * rpmFromGearset(indexer->get_gearing());
-	if (indexerBuffer > 0)
+	if (std::abs(indexer->get_target_position() - indexer->get_position()) < 1.5)
 	{
-		indexer->move_velocity(indexerRPM);
+		shooting = false;
 	}
-	else
+
+	if (controller->get_digital(intakeKeybind) && !shooting)
+	{
+		indexer->move_velocity(-600.0 * intakeSpeed);
+	}
+	else if (!shooting && !(controller->get_digital(intakeKeybind)))
 	{
 		indexer->brake();
 	}
@@ -254,12 +286,12 @@ void handleFlywheelControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital_new_press(DIGITAL_DOWN))
+	if (controller->get_digital_new_press(flywheelToggleKeybind))
 	{
 		flywheelAlwaysOn = !flywheelAlwaysOn;
 	}
 
-	if (controller->get_digital(DIGITAL_L2) || flywheelAlwaysOn)
+	if (controller->get_digital(flywheelKeybind) || flywheelAlwaysOn)
 	{
 		// use PID control for the flywheel, adding TBH (take back half) method
 		/**
@@ -268,12 +300,12 @@ void handleFlywheelControls()
 		 * A derivative component is probably best for applications where it is okay to reverse in order to settle the velocity. However,
 		   spinning the flywheel in reverse would be a terrible idea.
 		*/
-
+		/*
 		double target = 600.0 * flywheelSpeed; // proportion of 600 rpm
 		double actualVelocity = flywheel->get_actual_velocity();
 		double error = target - actualVelocity;
 		double kP = 3.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
-		syndicated::flywheelVelocityIntegral *= 0.9;
+		syndicated::flywheelVelocityIntegral *= 0.95;
 		syndicated::flywheelVelocityIntegral += error * syndicated::trueTimeElapsed;
 		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error))
 		{
@@ -285,6 +317,8 @@ void handleFlywheelControls()
 		double power = error * kP + syndicated::flywheelVelocityIntegral * kI + derivative * kD;
 		flywheel->move(std::min(std::max(127.0 * power / 600.0, 0.0), 127.0));
 		syndicated::prevFlywheelVelocityError = error;
+		*/
+		flywheel->move_velocity(600.0 * (farShooting ? flywheelSpeedFar : flywheelSpeed));
 	}
 	else
 	{
@@ -317,6 +351,16 @@ void handlePTOControls()
 		mr_ptr->set_pto_mode(ptoIsOn);
 		ml_ptr->set_pto_mode(ptoIsOn);
 		drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
+	}
+}
+
+void handleRangeSwitching()
+{
+	using namespace syndicated;
+
+	if (controller->get_digital_new_press(farShootingToggleKeybind))
+	{
+		farShooting = !farShooting;
 	}
 }
 
@@ -381,11 +425,12 @@ void opcontrol()
 		}
 
 		handlePTOControls();
+		handleRangeSwitching();
+		handleHeadingReset();
+
 		handleIntakeControls();
 		handleIndexerControls();
-		// handleFlywheelControls();
-
-		handleHeadingReset();
+		handleFlywheelControls();
 
 		double cycleTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - cycleStart).count();
 		pros::delay(std::max(0.0, targetCycleTime - cycleTime));
