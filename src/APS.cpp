@@ -11,7 +11,7 @@
 #include "utility-functions.hpp"
 
 APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig,
-         double sLO, double sOR, double sOS, odomConfig wheelSizes, pros::Imu *imu, double imuWeight)
+         double sLO, double sOR, double sOS, odomConfig wheelODs, pros::Imu *imu, double imuWeight)
 {
     this->leftEnc = new pros::ADIEncoder(leftEncoderConfig.topPort, leftEncoderConfig.bottomPort, leftEncoderConfig.reversed);
     this->rightEnc = new pros::ADIEncoder(rightEncoderConfig.topPort, rightEncoderConfig.bottomPort, rightEncoderConfig.reversed);
@@ -23,9 +23,9 @@ APS::APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, enco
         this->encodersDisabled = true;
     }
 
-    this->leftWheelSize = wheelSizes.leftWheelSize * 3.141592;
-    this->rightWheelSize = wheelSizes.rightWheelSize * 3.141592;
-    this->strafeWheelSize = wheelSizes.strafeWheelSize * 3.141592;
+    this->leftWheelOD = wheelODs.leftWheelOD;
+    this->rightWheelOD = wheelODs.rightWheelOD;
+    this->strafeWheelOD = wheelODs.strafeWheelOD;
     this->sLO = sLO;
     this->sOR = sOR;
     this->sOS = sOS;
@@ -117,14 +117,14 @@ void APS::updateAbsolutePosition()
     int currRightEncVal = this->rightEnc->get_value();
     int currStrafeEncVal = this->strafeEnc->get_value();
 
-    double dL = (currLeftEncVal - this->prevLeftEncVal) * this->leftWheelSize / 360.0;
-    double dR = (currRightEncVal - this->prevRightEncVal) * this->rightWheelSize / 360.0;
-    double dS = (currStrafeEncVal - this->prevStrafeEncVal) * this->strafeWheelSize / 360.0;
+    double dL = (currLeftEncVal - this->prevLeftEncVal) * this->leftWheelOD / 360.0;
+    double dR = (currRightEncVal - this->prevRightEncVal) * this->rightWheelOD / 360.0;
+    double dS = (currStrafeEncVal - this->prevStrafeEncVal) * this->strafeWheelOD / 360.0;
 
-    double oldHeading = this->absHeading;
+    double prevHeading = this->absHeading;
 
     // calculated as an absolute quantity
-    double newHeading = (180 / 3.141592) * ((currLeftEncVal / 360.0) * this->leftWheelSize - (currRightEncVal / 360.0) * this->rightWheelSize) / (this->sLO + this->sOR);
+    double newHeading = (180 / 3.141592) * ((currLeftEncVal / 360.0) * this->leftWheelOD - (currRightEncVal / 360.0) * this->rightWheelOD) / (this->sLO + this->sOR);
     if (0 < this->imuWeight && this->imuWeight <= 1)
     {
         newHeading = (newHeading * (1 - this->imuWeight) + this->imuWeight * this->imu->get_heading());
@@ -133,7 +133,7 @@ void APS::updateAbsolutePosition()
     // dY is the along the axis from the previous position to this position
     // dX is the along the axis perpendicular to that
 
-    double dH = newHeading - oldHeading;
+    double dH = newHeading - prevHeading;
     double dX = 180.0 * dS / (dH * 3.141592) - sOS;
     double dY = (180.0 * dR / (dH * 3.141592) + sOR + 180.0 * dL / (dH * 3.141592) + sLO) / 2.0;
 

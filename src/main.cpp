@@ -11,6 +11,7 @@
 #include "StarDrive.hpp"
 #include "MotorGroup.hpp"
 #include "APS.hpp"
+#include "TwoEncoderAPS.hpp"
 #include "utility-functions.hpp"
 
 #include "portDefinitions.h"
@@ -43,6 +44,7 @@ namespace syndicated
 	pros::ADIDigitalOut *pto;
 
 	pros::Imu *imu;
+	double imuMult;
 
 	double intakeSpeed;
 
@@ -123,8 +125,10 @@ void initialize()
 	APSUpdateFrequency = 100;
 	targetCycleTime = 40;
 
-	indexerSpeed = 0.2;
-	indexerSpeedFar = 0.2;
+	imuMult = 360.0 / 362.1;
+
+	indexerSpeed = 0.75;
+	indexerSpeedFar = 0.25;
 	indexerTravel = 225.0;
 
 	flywheelAlwaysOn = false;
@@ -166,8 +170,13 @@ void initialize()
 		pros::delay(20);
 	}
 
+	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', true}, -13.5, 103.0, {220.0, 220.0, 220.0}, imu, imuMult);
+
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
-	odometry = new APS({'A', 'B', true}, {'C', 'D', true}, {'E', 'F', true}, 7.0, 7.0, 0.5, {4, 4, 2.75}, imu, 1.0);
+
+	pros::delay(50);
+
+	odometry->setAbsolutePosition(0.0, 0.0, 0.0);
 
 	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT, MOTOR_GEAR_BLUE, 0);
 	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, MOTOR_GEAR_BLUE, 1);
@@ -179,7 +188,7 @@ void initialize()
 
 	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
 							   driveBackLeft, driveMidLeft, odometry);
-	drivetrain->setBrakeMode(MOTOR_BRAKE_BRAKE);
+	drivetrain->setBrakeMode(MOTOR_BRAKE_COAST);
 	drivetrain->setOutputRPMs({600.0, 600.0, 200.0, 600.0, 600.0, 200.0});
 
 	ptoIsOn = false;
@@ -396,7 +405,9 @@ void opcontrol()
 
 		pros::screen::erase();
 		pros::screen::print(TEXT_MEDIUM, 1, ptoIsOn ? "PTO: on" : "PTO: off");
-		pros::screen::print(TEXT_MEDIUM, 2, std::to_string(odometry->getAbsolutePosition().heading).c_str());
+		auto pos = odometry->getAbsolutePosition();
+		pros::screen::print(TEXT_MEDIUM, 2, std::to_string(pos.heading).c_str());
+		pros::screen::print(TEXT_MEDIUM, 3, "%f %f", pos.x, pos.y);
 
 		double crx = controller->get_analog(ANALOG_RIGHT_X) / 127.0;
 		double cry = controller->get_analog(ANALOG_RIGHT_Y) / 127.0;

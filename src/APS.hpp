@@ -27,9 +27,9 @@ struct absolutePosition {
 };
 
 struct odomConfig {
-    double leftWheelSize;
-    double rightWheelSize;
-    double strafeWheelSize;
+    double leftWheelOD; // in a two-encoder setup this is the y axis
+    double rightWheelOD;
+    double strafeWheelOD;
 };
 
 class APS
@@ -43,29 +43,30 @@ public:
      * @param rightEncoderConfig Configuration of the right encoder. Make sure that positive returned values indicate forward motion.
      * @param strafeEncoderConfig Configuration of the back encoder. Make sure that positive returned values indicate rightward motion.
      *
-     * @param sLO X position of the back encoder wheel, relative to the left encoder wheel, in inches;
-     * @param sOR X position of the right encoder wheel, relative to the back encoder wheel, in inches;
-     * @param sOS Y position of the back encoder wheel, relative to the left and right encoder wheels, in inches;
-     * @param wheelSizes Diameter of the odometry wheels in inches. One of 2.75, 3.25, or 4.0
+     * @param sLO X position of the back encoder wheel, relative to the left encoder wheel, in millimetres;
+     * @param sOR X position of the right encoder wheel, relative to the back encoder wheel, in millimetres;
+     * @param sOS Y position of the back encoder wheel, relative to the left and right encoder wheels, in millimetres;
+     * @param wheelODs Travel of tracking omniwheels, in millimitres.
      * 
      * @param imu An optional parameter to use an inertial measurement unit for the heading calculation
      * @param imuWeight How much weight to put into the IMU's measurements. From 0.0 to 1.0.
      */
+    APS() {}
     APS(encoderConfig leftEncoderConfig, encoderConfig rightEncoderConfig, encoderConfig strafeEncoderConfig, double sLO, double sOR,
-        double sOS, odomConfig wheelSizes, pros::Imu* imu = nullptr, double imuWeight = 0.5);
+        double sOS, odomConfig wheelODs, pros::Imu* imu = nullptr, double imuWeight = 0.5);
     ~APS();
 
     /**
      * Sets the representation of the robot's current position and heading in the APS
     */
-    void setAbsolutePosition(double x = 0.0, double y = 0.0, double heading = 0.0);
-    void updateAbsolutePosition();
-    absolutePosition getAbsolutePosition();
+    virtual void setAbsolutePosition(double x = 0.0, double y = 0.0, double heading = 0.0);
+    virtual void updateAbsolutePosition();
+    virtual absolutePosition getAbsolutePosition();
 
 private:
-    double leftWheelSize = 2.75;
-    double rightWheelSize = 2.75;
-    double strafeWheelSize = 2.75;
+    double leftWheelOD = 220.0;
+    double rightWheelOD = 220.0;
+    double strafeWheelOD = 220.0;
     double sLO = 1.0, sOR = 1.0, sOS = 1.0;
 
     pros::ADIEncoder *leftEnc = nullptr;
