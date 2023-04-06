@@ -48,3 +48,7 @@ polarPoint polarFromCartesian(double x, double y);
 double rpmFromGearset(pros::motor_gearset_e_t gearing);
 
 double findShorterTurn(double a0, double af, double mod);
+
+double inDegrees(double radians);
+
+double inRadians(double degrees);

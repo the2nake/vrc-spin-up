@@ -125,3 +125,13 @@ double findShorterTurn(double a0, double af, double mod)
         return rightAngle - mod;
     }
 }
+
+double inDegrees(double radians)
+{
+    return 180.0 * radians / 3.141592;
+}
+
+double inRadians(double degrees)
+{
+    return degrees * 3.141592 / 180.0;
+}
