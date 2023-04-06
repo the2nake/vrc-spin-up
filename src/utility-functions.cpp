@@ -35,6 +35,7 @@ double findMod(double a, double b)
 
     return a;
 }
+
 /**
  * Sine function using degrees
  */
@@ -109,5 +110,18 @@ double rpmFromGearset(pros::motor_gearset_e_t gearing)
     default:
         return 0.0;
         break;
+    }
+}
+
+double findShorterTurn(double a0, double af, double mod)
+{
+    auto rightAngle = findMod(af - a0, mod);
+    if (std::abs(rightAngle) < std::abs(mod / 2.0))
+    {
+        return rightAngle;
+    }
+    else
+    {
+        return rightAngle - mod;
     }
 }
