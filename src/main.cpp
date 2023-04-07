@@ -125,26 +125,26 @@ void initialize()
 	APSUpdateFrequency = 100;
 	targetCycleTime = 40;
 
-	imuMult = 360.0 / 362.1;
+	imuMult = 360.0 / 362.4;
 
-	indexerSpeed = 0.75;
-	indexerSpeedFar = 0.25;
+	indexerSpeed = 0.9;
+	indexerSpeedFar = 0.75;
 	indexerTravel = 225.0;
 
 	flywheelAlwaysOn = false;
-	flywheelSpeed = 0.6;
+	flywheelSpeed = 0.55;
 	flywheelSpeedFar = 0.9;
 	flywheelIdleSpeed = 0 / flywheelSpeed;
 
 	intakeSpeed = 1.0;
 
-	ptoMaxDriveRPM = 360.0;
+	ptoMaxDriveRPM = 200.0;
 	baseMaxDriveRPM = 200.0;
 
-	flywheelKeybind = DIGITAL_L1;
-	shootKeybind = DIGITAL_L2;
-	intakeKeybind = DIGITAL_R1;
-	outtakeKeybind = DIGITAL_R2;
+	shootKeybind = DIGITAL_L1;
+	flywheelKeybind = DIGITAL_L2;
+	outtakeKeybind = DIGITAL_R1;
+	intakeKeybind = DIGITAL_R2;
 
 	farShootingToggleKeybind = DIGITAL_UP;
 	flywheelToggleKeybind = DIGITAL_LEFT;
@@ -170,7 +170,7 @@ void initialize()
 		pros::delay(20);
 	}
 
-	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', true}, -13.5, 103.0, {220.0, 220.0, 220.0}, imu, imuMult);
+	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', true}, -12.0, -103.0, {220.0, 220.0, 220.0}, imu, imuMult);
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 
@@ -178,10 +178,10 @@ void initialize()
 
 	odometry->setAbsolutePosition(0.0, 0.0, 0.0);
 
-	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT, MOTOR_GEAR_BLUE, 0);
-	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, MOTOR_GEAR_BLUE, 1);
-	driveBackRight = new pros::Motor(DRIVE_BR_PORT, MOTOR_GEAR_BLUE, 1);
-	driveBackLeft = new pros::Motor(DRIVE_BL_PORT, MOTOR_GEAR_BLUE, 0);
+	driveFrontLeft = new pros::Motor(DRIVE_FL_PORT, MOTOR_GEAR_GREEN, 0);
+	driveFrontRight = new pros::Motor(DRIVE_FR_PORT, MOTOR_GEAR_GREEN, 1);
+	driveBackRight = new pros::Motor(DRIVE_BR_PORT, MOTOR_GEAR_GREEN, 1);
+	driveBackLeft = new pros::Motor(DRIVE_BL_PORT, MOTOR_GEAR_GREEN, 0);
 
 	driveMidLeft = new PTOMotor(DRIVE_ML_PORT, MOTOR_GEAR_GREEN, 0);
 	driveMidRight = new PTOMotor(DRIVE_MR_PORT, MOTOR_GEAR_GREEN, 1);
@@ -189,7 +189,7 @@ void initialize()
 	drivetrain = new StarDrive(driveFrontLeft, driveFrontRight, driveMidRight, driveBackRight,
 							   driveBackLeft, driveMidLeft, odometry);
 	drivetrain->setBrakeMode(MOTOR_BRAKE_COAST);
-	drivetrain->setOutputRPMs({600.0, 600.0, 200.0, 600.0, 600.0, 200.0});
+	drivetrain->setOutputRPMs({200.0, 200.0, 200.0, 200.0, 200.0, 200.0});
 
 	ptoIsOn = false;
 	pto = new pros::ADIDigitalOut(PTO_PORT);
@@ -274,6 +274,11 @@ void handleIndexerControls()
 		double indexerRPM = (farShooting ? indexerSpeedFar : indexerSpeed) * rpmFromGearset(indexer->get_gearing());
 		indexer->move_absolute((shooting ? indexer->get_target_position() : indexer->get_position()) + indexerTravel, indexerRPM);
 		shooting = true;
+	}
+
+	if (std::abs(flywheel->get_actual_velocity()) < 200.0)
+	{
+		shooting = false;
 	}
 
 	if (std::abs(indexer->get_target_position() - indexer->get_position()) < 1.5)
@@ -398,6 +403,8 @@ void opcontrol()
 	}
 
 	double headingToMaintain = odometry->getAbsolutePosition().heading;
+	double previousTurnVelocity = 0.0;
+	double turnMaxAccel = 0.1;
 
 	while (true)
 	{
@@ -425,6 +432,7 @@ void opcontrol()
 		if (std::abs(crx) < 0.01 && std::abs(cry) < 0.01 && std::abs(clx) < 0.01)
 		{
 			drivetrain->brake();
+			previousTurnVelocity = 0.0;
 		}
 		else if (std::abs(clx) < 0.01)
 		{
@@ -432,7 +440,10 @@ void opcontrol()
 		}
 		else
 		{
-			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, clx);
+			double turnVelocity = (clx >= 0 ? 1.0 : -1.0) * (cos(3.141592 * (clx + 1.0)) / 2.0 + 0.5);
+			turnVelocity = std::max(std::min(turnVelocity, previousTurnVelocity + turnMaxAccel), previousTurnVelocity - turnMaxAccel);
+			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, turnVelocity);
+			previousTurnVelocity = turnVelocity;
 		}
 
 		handlePTOControls();

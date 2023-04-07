@@ -115,16 +115,15 @@ void TwoEncoderAPS::updateAbsolutePosition()
 
     double dYEnc = (currYEncVal - this->prevYEncVal) * this->yWheelOD / 360.0;
     double dXEnc = (currXEncVal - this->prevXEncVal) * this->xWheelOD / 360.0;
+    double dH = findShorterTurn(previousImuHeading, currentImuHeading, 360.0) * imuMultiplier;
 
     // if (dYEnc == 0 && dXEnc == 0) {
     //     return;
     // }
 
-    // find dX, dY, dH from dL, dR, and dS
     // dY is the along the axis from the previous position to this position
     // dX is the along the axis perpendicular to that
 
-    double dH = findShorterTurn(previousImuHeading, currentImuHeading, 360.0) * imuMultiplier;
     double dY, dX;
     if (dH == 0)
     {
@@ -133,8 +132,8 @@ void TwoEncoderAPS::updateAbsolutePosition()
     }
     else
     {
-        dY = 180.0 * dYEnc / (dH * 3.141592) + sYO;
-        dX = 180.0 * dXEnc / (dH * 3.141592) + sOX;
+        dY = dYEnc / inRadians(dH) + sYO;
+        dX = dXEnc / inRadians(dH) + sOX;
 
         dX *= 2 * sinDeg(dH / 2.0);
         dY *= 2 * sinDeg(dH / 2.0);
@@ -143,7 +142,7 @@ void TwoEncoderAPS::updateAbsolutePosition()
     // calculated as an absolute quantity
     double newHeading = prevHeading + dH;
 
-    // use a rotation matrix on dX and dY, anticlockwise dH degrees
+    // use a rotation matrix on dX and dY, anticlockwise
 
     dX = dX * cosDeg(newHeading) - dY * sinDeg(newHeading);
     dY = dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
