@@ -13,6 +13,11 @@
 
 #include <atomic>
 
+struct EncoderReadingPair {
+    double x;
+    double y;
+};
+
 class TwoEncoderAPS : public APS {
 public:
     /**
@@ -28,6 +33,9 @@ public:
     void setAbsolutePosition(double x = 0.0, double y = 0.0, double heading = 0.0) override;
     void updateAbsolutePosition() override;
     absolutePosition getAbsolutePosition() override;
+    EncoderReadingPair getEncoderReadings() {
+        return {(double)(prevXEncVal), (double)(prevYEncVal)};
+    }
 
 private:
     double yWheelOD = 220.0; // in mm

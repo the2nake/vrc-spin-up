@@ -132,11 +132,8 @@ void TwoEncoderAPS::updateAbsolutePosition()
     }
     else
     {
-        dY = dYEnc / inRadians(dH) + sYO;
-        dX = dXEnc / inRadians(dH) + sOX;
-
-        dX *= 2 * sinDeg(dH / 2.0);
-        dY *= 2 * sinDeg(dH / 2.0);
+        dY = 2 * sinDeg(dH / 2.0) * (dYEnc / inRadians(dH) + sYO);
+        dX = 2 * sinDeg(dH / 2.0) * (dXEnc / inRadians(dH) + sOX);
     }
 
     // calculated as an absolute quantity
@@ -144,16 +141,20 @@ void TwoEncoderAPS::updateAbsolutePosition()
 
     // use a rotation matrix on dX and dY, anticlockwise
 
-    dX = dX * cosDeg(newHeading) - dY * sinDeg(newHeading);
-    dY = dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
+    pros::screen::print(TEXT_MEDIUM, 9, "localDX: %f localDY: %f", dX, dY);
+
+    auto dXg = dX * cosDeg(newHeading) + dY * sinDeg(newHeading);
+    auto dYg = - dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
+
+    pros::screen::print(TEXT_MEDIUM, 10, "gDX: %f gDY: %f", dXg, dYg);
 
     // make sure nothing writes to these variables
     // setting a few variables should never take more than one update cycle
     while (!this->positionDataMutex.take(5))
     {
     }
-    this->absX = this->absX + dX;
-    this->absY = this->absY + dY;
+    this->absX = this->absX + dXg;
+    this->absY = this->absY + dYg;
     this->absHeading = findMod(newHeading, 360.0);
     this->positionDataMutex.give();
 

@@ -41,7 +41,7 @@ double findMod(double a, double b)
  */
 double sinDeg(double deg)
 {
-    return std::sin(0.01745329251 * deg);
+    return std::sin(inRadians(deg));
 }
 
 /**
@@ -49,7 +49,7 @@ double sinDeg(double deg)
  */
 double cosDeg(double deg)
 {
-    return std::cos(0.01745329251 * deg);
+    return std::cos(inRadians(deg));
 }
 
 /**

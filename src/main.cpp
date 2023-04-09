@@ -39,7 +39,7 @@ namespace syndicated
 	pros::Motor *driveMidLeft;
 
 	StarDrive *drivetrain;
-	APS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
+	TwoEncoderAPS *odometry; // remember to set this to nullptr after calling delete syndicated::odometry;
 
 	pros::ADIDigitalOut *pto;
 
@@ -170,7 +170,7 @@ void initialize()
 		pros::delay(20);
 	}
 
-	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', true}, -12.0, -103.0, {220.0, 220.0, 220.0}, imu, imuMult);
+	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', false}, -13.0, 104.0, {220.0, 220.0, 220.0}, imu, imuMult);
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 
@@ -346,7 +346,6 @@ void handleHeadingReset()
 
 	if (controller->get_digital(DIGITAL_Y))
 	{
-		pros::screen::print(TEXT_MEDIUM, 4, "Reseting heading");
 		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 0);
 	}
 }
@@ -405,6 +404,7 @@ void opcontrol()
 	double headingToMaintain = odometry->getAbsolutePosition().heading;
 	double previousTurnVelocity = 0.0;
 	double turnMaxAccel = 0.1;
+	std::vector<std::pair<double, double>> points = {};
 
 	while (true)
 	{
@@ -414,7 +414,31 @@ void opcontrol()
 		pros::screen::print(TEXT_MEDIUM, 1, ptoIsOn ? "PTO: on" : "PTO: off");
 		auto pos = odometry->getAbsolutePosition();
 		pros::screen::print(TEXT_MEDIUM, 2, std::to_string(pos.heading).c_str());
-		pros::screen::print(TEXT_MEDIUM, 3, "%f %f", pos.x, pos.y);
+		pros::screen::print(TEXT_MEDIUM, 3, "X: %f, Y: %f", pos.x, pos.y);
+		auto encPair = odometry->getEncoderReadings();
+		pros::screen::print(TEXT_MEDIUM, 5, "X Encoder: %f", encPair.x);
+		pros::screen::print(TEXT_MEDIUM, 6, "Y Encoder: %f", encPair.y);
+		pros::screen::print(TEXT_MEDIUM, 7, "dX: %f", encPair.x * 220.0 / 360.0);
+		pros::screen::print(TEXT_MEDIUM, 8, "dY: %f", encPair.y * 220.0 / 360.0);
+
+		pros::screen::set_pen(COLOR_CORNFLOWER_BLUE);
+		double x1 = 300, y1 = 50, x2 = 450, y2 = 200;
+		pros::screen::draw_rect(x1, y1, x2, y2);
+		double originX = (x2 + x1) / 2.0;
+		double originY = (y2 + y1) / 2.0;
+		pros::screen::set_pen(COLOR_PALE_VIOLET_RED);
+		double scale = 0.15;
+		auto drawX = originX + scale * pos.x;
+		auto drawY = originY - scale * pos.y;
+		points.push_back({drawX, drawY});
+		if (points.size() > 150)
+		{
+			points.erase(points.begin());
+		}
+		for (auto p : points)
+		{
+			pros::screen::draw_circle(p.first, p.second, 1);
+		}
 
 		double crx = controller->get_analog(ANALOG_RIGHT_X) / 127.0;
 		double cry = controller->get_analog(ANALOG_RIGHT_Y) / 127.0;
