@@ -37,7 +37,7 @@ TwoEncoderAPS::TwoEncoderAPS(encoderConfig yc, encoderConfig xc, double syo, dou
     {
         if (this->encodersDisabled)
         {
-            pros::screen::print(TEXT_LARGE_CENTER, 3, "APS Module Malfunction"); // TODO: file bug in pros kernel to fix TEXT_LARGE_CENTER macro
+            pros::screen::print(TEXT_LARGE_CENTER, 3, "APS Module Malfunction");
         }
         this->imu = nullptr;
     }
@@ -141,12 +141,8 @@ void TwoEncoderAPS::updateAbsolutePosition()
 
     // use a rotation matrix on dX and dY, anticlockwise
 
-    pros::screen::print(TEXT_MEDIUM, 9, "localDX: %f localDY: %f", dX, dY);
-
     auto dXg = dX * cosDeg(newHeading) + dY * sinDeg(newHeading);
     auto dYg = - dX * sinDeg(newHeading) + dY * cosDeg(newHeading);
-
-    pros::screen::print(TEXT_MEDIUM, 10, "gDX: %f gDY: %f", dXg, dYg);
 
     // make sure nothing writes to these variables
     // setting a few variables should never take more than one update cycle
