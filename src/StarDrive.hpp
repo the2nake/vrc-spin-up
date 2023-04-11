@@ -2,8 +2,11 @@
 
 #include "XDrive.hpp"
 #include "APS.hpp"
+#include "PIDController.hpp"
 
 #include "main.h"
+
+#include <chrono>
 
 class StarDrive : public XDrive {
 public:
@@ -17,7 +20,7 @@ public:
      * Will only devote, at maximum, 9% of the drivetrain's power to maintaining the angle
      * Optionally has a threshold argument to avoid overcompensation
     */
-    void driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading, double threshold = 0.5);
+    void driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading, double threshold = 2.0);
 
     void driveAndTurn(double translationVelocity, double translationHeading, double rotationVelocity) override;
 
@@ -26,21 +29,40 @@ public:
 
     void setMaxRPM(double rpm);
     double getMaxRPM();
-    
     void setOutputRPMs(std::vector<double> rpms);
     std::vector<double> getOutputRPMs();
 
-private:
-    pros::Motor *frontLeft;
-    pros::Motor *frontRight;
-    pros::Motor *midRight;
-    pros::Motor *backRight;
-    pros::Motor *backLeft;
-    pros::Motor *midLeft;
+    void configTranslationalPID(PIDConfig config);
+    void configAngularPID(PIDConfig config);
 
-    APS* odometry;
+    void setMotionTarget(absolutePosition targetPose);
+    void moveFollowingMotionProfile();
+    void haltPIDMotion();
+
+    bool isPIDActive() {
+        return this->PIDActive;
+    }
+
+private:
+    pros::Motor *frontLeft = nullptr;
+    pros::Motor *frontRight = nullptr;
+    pros::Motor *midRight = nullptr;
+    pros::Motor *backRight = nullptr;
+    pros::Motor *backLeft = nullptr;
+    pros::Motor *midLeft = nullptr;
+
+    APS* odometry = nullptr;
     
     double maxRPM = 600.0;
-
     std::vector<double> outputRPMs = {200.0, 200.0, 200.0, 200.0, 200.0, 200.0}; // modifiers representing external gearing
+
+    /* Profiled motion */
+    bool PIDActive = false;
+    absolutePosition targetPose;
+
+    PIDController *angularVelocityController = nullptr;
+    PIDController *translationalVelocityController = nullptr;
+
+    PIDConfig angularConfig;
+    PIDConfig translationalConfig;
 };

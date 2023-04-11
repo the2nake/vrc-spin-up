@@ -70,6 +70,6 @@ T vectorMax(std::vector<T> &vector)
 }
 
 template <typename T>
-double timeBetween(std::chrono::high_resolution_clock::time_point t0, std::chrono::high_resolution_clock::time_point tf) {
+long double timeBetween(std::chrono::high_resolution_clock::time_point t0, std::chrono::high_resolution_clock::time_point tf) {
     return std::chrono::duration_cast<T>(tf - t0).count();
 }

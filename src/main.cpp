@@ -74,6 +74,9 @@ namespace syndicated
 	double ptoMaxDriveRPM;
 	double baseMaxDriveRPM;
 
+	PIDConfig drivetrainTranslationPID;
+	PIDConfig drivetrainAngularPID;
+
 	double indexerSpeed;
 	double indexerSpeedFar;
 	double indexerTravel;
@@ -123,9 +126,9 @@ void initialize()
 	soloAuton = false;
 
 	APSUpdateFrequency = 100;
-	targetCycleTime = 40;
+	targetCycleTime = 10;
 
-	imuMult = 360.0 / 362.4;
+	imuMult = 360.0 / 362.05;
 
 	indexerSpeed = 0.9;
 	indexerSpeedFar = 0.75;
@@ -140,6 +143,9 @@ void initialize()
 
 	ptoMaxDriveRPM = 200.0;
 	baseMaxDriveRPM = 200.0;
+
+	drivetrainTranslationPID = {0.78/400.0, 0.0, 0.00015, true};
+	drivetrainAngularPID = {1.0/131.7, 0.0, 0.00005, true};
 
 	shootKeybind = DIGITAL_L1;
 	flywheelKeybind = DIGITAL_L2;
@@ -190,6 +196,8 @@ void initialize()
 							   driveBackLeft, driveMidLeft, odometry);
 	drivetrain->setBrakeMode(MOTOR_BRAKE_COAST);
 	drivetrain->setOutputRPMs({200.0, 200.0, 200.0, 200.0, 200.0, 200.0});
+	drivetrain->configTranslationalPID(drivetrainTranslationPID);
+	drivetrain->configAngularPID(drivetrainAngularPID);
 
 	ptoIsOn = false;
 	pto = new pros::ADIDigitalOut(PTO_PORT);
@@ -203,7 +211,7 @@ void initialize()
 	farShooting = false;
 	shooting = false;
 
-	pros::delay(300);
+	pros::delay(500);
 }
 
 /**
@@ -224,6 +232,19 @@ void disabled() {}
  */
 void competition_initialize() {}
 
+void updatePTOState(bool state)
+{
+	using namespace syndicated;
+
+	ptoIsOn = state;
+	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+	pto->set_value(ptoIsOn);
+	mr_ptr->set_pto_mode(ptoIsOn);
+	ml_ptr->set_pto_mode(ptoIsOn);
+	drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
+}
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -238,7 +259,45 @@ void competition_initialize() {}
 void autonomous()
 {
 	using namespace syndicated;
-}
+	updatePTOState(true);
+
+	/* demo route */
+	/*
+	drivetrain->setMotionTarget({400.0, 400.0, 180.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+
+		pros::delay(10);
+	}
+
+	drivetrain->setMotionTarget({0.0, 800.0, 0.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+
+		pros::delay(10);
+	}
+
+	drivetrain->setMotionTarget({-400.0, 400.0, 180.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+
+		pros::delay(10);
+	}
+
+	drivetrain->setMotionTarget({0.0, 0.0, 0.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+
+		pros::delay(10);
+	}*/
 
 void handleIntakeControls()
 {
@@ -356,14 +415,7 @@ void handlePTOControls()
 
 	if (controller->get_digital_new_press(DIGITAL_B))
 	{
-		ptoIsOn = !ptoIsOn;
-
-		PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
-		PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
-		pto->set_value(ptoIsOn);
-		mr_ptr->set_pto_mode(ptoIsOn);
-		ml_ptr->set_pto_mode(ptoIsOn);
-		drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
+		updatePTOState(!ptoIsOn);
 	}
 }
 
@@ -401,7 +453,6 @@ void opcontrol()
 		odometry->setAbsolutePosition(APS_NO_CHANGE, APS_NO_CHANGE, 270);
 	}
 
-	double headingToMaintain = odometry->getAbsolutePosition().heading;
 	double previousTurnVelocity = 0.0;
 	double turnMaxAccel = 0.1;
 	std::vector<std::pair<double, double>> points = {};
@@ -447,11 +498,7 @@ void opcontrol()
 
 		polarPoint translationVector = polarFromCartesian(crx, cry);
 		translationVector.rho = std::min(translationVector.rho, 1.0);
-
-		if (std::abs(clx) > 0.01)
-		{
-			headingToMaintain = odometry->getAbsolutePosition().heading;
-		}
+		auto translationHeading = 90 - translationVector.theta;
 
 		if (std::abs(crx) < 0.01 && std::abs(cry) < 0.01 && std::abs(clx) < 0.01)
 		{
@@ -460,13 +507,13 @@ void opcontrol()
 		}
 		else if (std::abs(clx) < 0.01)
 		{
-			drivetrain->driveAndMaintainHeading(translationVector.rho, 90 - translationVector.theta, headingToMaintain);
+			drivetrain->drive(translationVector.rho, translationHeading);
 		}
 		else
 		{
 			double turnVelocity = (clx >= 0 ? 1.0 : -1.0) * (cos(3.141592 * (clx + 1.0)) / 2.0 + 0.5);
 			turnVelocity = std::max(std::min(turnVelocity, previousTurnVelocity + turnMaxAccel), previousTurnVelocity - turnMaxAccel);
-			drivetrain->driveAndTurn(translationVector.rho, 90 - translationVector.theta, turnVelocity);
+			drivetrain->driveAndTurn(translationVector.rho, translationHeading, turnVelocity);
 			previousTurnVelocity = turnVelocity;
 		}
 
