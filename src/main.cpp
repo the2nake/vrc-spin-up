@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 /**
@@ -128,7 +129,7 @@ void initialize()
 	APSUpdateFrequency = 100;
 	targetCycleTime = 10;
 
-	imuMult = 360.0 / 362.05;
+	imuMult = 360.0 / 362;
 
 	indexerSpeed = 0.9;
 	indexerSpeedFar = 0.75;
@@ -144,8 +145,9 @@ void initialize()
 	ptoMaxDriveRPM = 200.0;
 	baseMaxDriveRPM = 200.0;
 
-	drivetrainTranslationPID = {0.78/400.0, 0.0, 0.00015, true};
-	drivetrainAngularPID = {1.0/131.7, 0.0, 0.00005, true};
+	drivetrainTranslationPID = {1.0 / 400.0, 0.0, 0.001, true, 0.0};
+	// NOTE: high accuracy angle turning: drivetrainAngularPID = {1.0 / 131.7, 0.0, 0.001, true};
+	drivetrainAngularPID = {1.0 / 131.5, 0.0015, 0.0005, true};
 
 	shootKeybind = DIGITAL_L1;
 	flywheelKeybind = DIGITAL_L2;
@@ -176,7 +178,7 @@ void initialize()
 		pros::delay(20);
 	}
 
-	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', false}, -13.0, 104.0, {220.0, 220.0, 220.0}, imu, imuMult);
+	odometry = new TwoEncoderAPS({'A', 'B', true}, {'C', 'D', false}, -13.0, 104.0, {220.0, 220.0, 220.858895706}, imu, imuMult);
 
 	APSUpdateTask = new pros::Task{updateAPSTask, nullptr, "APS Update Task"};
 
@@ -245,6 +247,68 @@ void updatePTOState(bool state)
 	drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
 }
 
+void moveToPose(absolutePosition pose)
+{
+	using namespace syndicated;
+
+	drivetrain->initiateMotionTo(pose);
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+}
+
+void turnToPoint(double x, double y)
+{
+	using namespace syndicated;
+
+	auto currentPose = odometry->getAbsolutePosition();
+	moveToPose({currentPose.x, currentPose.y, headingToPoint(x - currentPose.x, y - currentPose.y)});
+}
+
+double spinFlywheelToRPM(double rpm)
+{
+	using namespace syndicated;
+
+	double error = rpm;
+	double prev_error = rpm;
+	double output = 0.0;
+	double tbh = output;
+	double gain = 5.0;
+
+	do
+	{
+		double currentSpeed = flywheel->get_actual_velocity();
+		error = rpm - currentSpeed;
+		output += gain * error;
+		if (std::signbit(error) != std::signbit(prev_error))
+		{
+			output = 0.5 * (output + tbh);
+			tbh = output;
+			prev_error = error;
+		}
+		flywheel->move_voltage(output);
+		pros::screen::print(TEXT_MEDIUM, 0, "Output: %f Speed: %f Error: %f", output, currentSpeed, error);
+		pros::delay(20);
+	} while (std::abs(error) > 25.0 || std::abs(error - prev_error) > 20.0);
+
+	return output;
+}
+
+void shootDisc()
+{
+	using namespace syndicated;
+
+	indexer->move_relative(indexerTravel, indexerSpeedFar * 600.0);
+
+	do
+	{
+		pros::delay(20);
+	} while (!indexer->is_stopped());
+}
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -260,44 +324,99 @@ void autonomous()
 {
 	using namespace syndicated;
 	updatePTOState(true);
+	odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
+
+	turnToPoint(-2800.0, 2600.0);
+
+	flywheel->move_voltage(spinFlywheelToRPM(400.0));
+	shootDisc();
+	shootDisc();
+	shootDisc();
+	/* testing area */
+	{
+		/*
+		drivetrain->initiateMotionTo({0.0, 0.0, 90.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+		*/
+	}
 
 	/* demo route */
-	/*
-	drivetrain->setMotionTarget({400.0, 400.0, 180.0});
-
-	while (drivetrain->isPIDActive())
 	{
-		drivetrain->moveFollowingMotionProfile();
+		/*
+		drivetrain->initiateMotionTo({400.0, 400.0, 90.0});
 
-		pros::delay(10);
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({0.0, 800.0, 180.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({-400.0, 400.0, 270.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({0.0, 0.0, 0.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}*/
 	}
-
-	drivetrain->setMotionTarget({0.0, 800.0, 0.0});
-
-	while (drivetrain->isPIDActive())
+	/* demo route 2 */
 	{
-		drivetrain->moveFollowingMotionProfile();
+		/*
+		drivetrain->initiateMotionTo({1200.0, 2000.0, 0.0});
 
-		pros::delay(10);
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({400.0, 2000.0, 0.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({0.0, 1200.0, 90.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+
+		drivetrain->initiateMotionTo({4800.0, 1200.0, 90.0});
+
+		while (drivetrain->isPIDActive())
+		{
+			drivetrain->moveFollowingMotionProfile();
+			pros::delay(10);
+		}
+		*/
 	}
-
-	drivetrain->setMotionTarget({-400.0, 400.0, 180.0});
-
-	while (drivetrain->isPIDActive())
-	{
-		drivetrain->moveFollowingMotionProfile();
-
-		pros::delay(10);
-	}
-
-	drivetrain->setMotionTarget({0.0, 0.0, 0.0});
-
-	while (drivetrain->isPIDActive())
-	{
-		drivetrain->moveFollowingMotionProfile();
-
-		pros::delay(10);
-	}*/
+}
 
 void handleIntakeControls()
 {
