@@ -240,7 +240,7 @@ void StarDrive::configAngularPID(PIDConfig config)
     }
 }
 
-void StarDrive::setMotionTarget(absolutePosition targetPose)
+void StarDrive::initiateMotionTo(absolutePosition targetPose)
 {
     this->targetPose = targetPose;
     if (translationalVelocityController != nullptr)
@@ -252,6 +252,10 @@ void StarDrive::setMotionTarget(absolutePosition targetPose)
         this->angularVelocityController->startPID(0.0); // use PID for delta theta target 0.0
     }
     this->PIDActive = true;
+}
+
+void StarDrive::setMotionTarget(absolutePosition targetPose) {
+    this->targetPose = targetPose;
 }
 
 void StarDrive::moveFollowingMotionProfile()
@@ -269,6 +273,7 @@ void StarDrive::moveFollowingMotionProfile()
     auto translationVector = polarFromCartesian(dX, dY);
 
     double translationalOutput = 0.0, angularOutput = 0.0;
+    double degreesToTurn = findShorterTurn(currentPose.heading, targetPose.heading, 360.0);
 
     // update the PID outputs
     if (translationalVelocityController != nullptr)
@@ -277,8 +282,13 @@ void StarDrive::moveFollowingMotionProfile()
     }
     if (angularVelocityController != nullptr)
     {
-        angularOutput = this->angularVelocityController->updatePID(-findShorterTurn(currentPose.heading, targetPose.heading, 360.0)); // negative so PID output is positive
+        angularOutput = this->angularVelocityController->updatePID(-degreesToTurn); // negative so PID output is positive
     }
+
+    // calculate drivetrain inputs
+    double translationVelocity = std::min(std::max(translationalOutput, 0.0), 1.0);
+    double translationHeading = findMod(90 - translationVector.theta, 360.0);
+    double angularVelocity = std::min(std::max(angularOutput, -1.0), 1.0);
 
     // BUG: integral will not be cut when robot crosses the target point, so integral will increase indefinitely
     // NOTE: you cannot simply set the angle from the beginning because the drivetrain will drift over time
@@ -287,7 +297,7 @@ void StarDrive::moveFollowingMotionProfile()
     // NOTE: for drivetrains, integral may not be necessary if the inertia of the robot is sufficient
 
     // if settled
-    if (std::abs(translationalOutput) < 0.005 && std::abs(angularOutput) < 0.005)
+    if (std::abs(translationVector.rho) < 3 && std::abs(degreesToTurn) < 1)
     {
         PIDActive = false;
         if (translationalVelocityController != nullptr)
@@ -299,14 +309,14 @@ void StarDrive::moveFollowingMotionProfile()
         {
             this->angularVelocityController->resetPIDSystem();
         }
+        auto brakeMode = this->frontLeft->get_brake_mode();
+        this->setBrakeMode(MOTOR_BRAKE_BRAKE);
         this->brake();
+        this->setBrakeMode(brakeMode);
         return;
     }
 
     // move if not there yet
-    double translationVelocity = std::min(std::max(translationalOutput, 0.0), 1.0);
-    double translationHeading = findMod(90 - translationVector.theta, 360.0);
-    double angularVelocity = std::min(std::max(angularOutput, -1.0), 1.0);
     this->driveAndTurn(translationVelocity, translationHeading, angularVelocity);
 }
 

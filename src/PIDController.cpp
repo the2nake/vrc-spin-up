@@ -17,14 +17,16 @@ void PIDController::setPIDConstants(PIDConfig config) {
     this->kI = config.kI;
     this->kD = config.kD;
     this->cutIntegral = config.cutIntegral;
+    this->integralCutThreshold = config.integralCutThreshold;
 }
 
-void PIDController::setPIDConstants(double kP, double kI, double kD, bool cutIntegral)
+void PIDController::setPIDConstants(double kP, double kI, double kD, bool cutIntegral, double integralCutThreshold)
 {
     this->kP = kP;
     this->kI = kI;
     this->kD = kD;
     this->cutIntegral = cutIntegral;
+    this->integralCutThreshold = integralCutThreshold;
 }
 
 void PIDController::resetPIDSystem()
@@ -59,7 +61,7 @@ double PIDController::updatePID(double sensorValue)
     double error = this->target - sensorValue;
 
     this->integral += error * dT;
-    if (cutIntegral && (error == 0 || (std::signbit(error) != std::signbit(prevError))))
+    if (cutIntegral && (std::abs(error) <= this->integralCutThreshold || (std::signbit(error) != std::signbit(prevError))))
     {
         this->integral = 0;
     }

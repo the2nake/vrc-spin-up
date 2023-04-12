@@ -35,6 +35,7 @@ public:
     void configTranslationalPID(PIDConfig config);
     void configAngularPID(PIDConfig config);
 
+    void initiateMotionTo(absolutePosition targetPose);
     void setMotionTarget(absolutePosition targetPose);
     void moveFollowingMotionProfile();
     void haltPIDMotion();

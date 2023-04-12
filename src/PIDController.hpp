@@ -7,13 +7,14 @@ struct PIDConfig {
     double kI;
     double kD;
     bool cutIntegral = false;
+    double integralCutThreshold = 0.0;
 };
 
 class PIDController {
 public:
     PIDController(PIDConfig config);
 
-    void setPIDConstants(double kP, double kI, double kD, bool cutIntegral);
+    void setPIDConstants(double kP, double kI, double kD, bool cutIntegral, double integralCutThreshold);
     void setPIDConstants(PIDConfig config);
 
     void startPID(double target);
@@ -35,4 +36,5 @@ private:
     double derivative = 0.0;
 
     bool cutIntegral = false;
+    double integralCutThreshold;
 };
