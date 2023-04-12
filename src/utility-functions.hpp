@@ -47,6 +47,8 @@ struct polarPoint
  */
 polarPoint polarFromCartesian(double x, double y);
 
+double headingToPoint(double x, double y);
+
 double rpmFromGearset(pros::motor_gearset_e_t gearing);
 
 double findShorterTurn(double a0, double af, double mod);

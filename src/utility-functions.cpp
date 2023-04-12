@@ -94,6 +94,11 @@ polarPoint polarFromCartesian(double x, double y)
     return point;
 }
 
+double headingToPoint(double x, double y)  {
+    auto translationVector = polarFromCartesian(x, y);
+    return findMod(90 - translationVector.theta, 360.0);
+}
+
 double rpmFromGearset(pros::motor_gearset_e_t gearing)
 {
     switch (gearing)
