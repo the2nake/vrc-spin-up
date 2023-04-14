@@ -13,6 +13,8 @@
 #include "APS.hpp"
 #include "TwoEncoderAPS.hpp"
 #include "utility-functions.hpp"
+#include "PIDController.hpp"
+#include "TBHController.hpp"
 
 #include "portDefinitions.h"
 
@@ -85,6 +87,9 @@ namespace syndicated
 	bool farShooting;
 	bool shooting;
 
+	TBHController *flywheelTBH;
+	pros::Task *flywheelTBHUpdateTask;
+
 	pros::controller_digital_e_t flywheelKeybind;
 	pros::controller_digital_e_t shootKeybind;
 	pros::controller_digital_e_t intakeKeybind;
@@ -123,8 +128,10 @@ void initialize()
 	 */
 
 	autonomousSkills = false;
-	startingOnRoller = true;
+	startingOnRoller = false;
 	soloAuton = false;
+
+	double defaultPTOSetting = true;
 
 	APSUpdateFrequency = 100;
 	targetCycleTime = 10;
@@ -136,7 +143,7 @@ void initialize()
 	indexerTravel = 225.0;
 
 	flywheelAlwaysOn = false;
-	flywheelSpeed = 0.55;
+	flywheelSpeed = 0.5;
 	flywheelSpeedFar = 0.9;
 	flywheelIdleSpeed = 0 / flywheelSpeed;
 
@@ -164,6 +171,8 @@ void initialize()
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
+	flywheelTBH = nullptr;
+	flywheelTBHUpdateTask = nullptr;
 
 	flywheelVelocityTBH = 0;
 	flywheelVelocityIntegral = 0;
@@ -201,10 +210,11 @@ void initialize()
 	drivetrain->configTranslationalPID(drivetrainTranslationPID);
 	drivetrain->configAngularPID(drivetrainAngularPID);
 
-	ptoIsOn = false;
-	pto = new pros::ADIDigitalOut(PTO_PORT);
-	dynamic_cast<PTOMotor *>(driveMidLeft)->set_pto_mode(false);
-	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(false);
+	ptoIsOn = defaultPTOSetting;
+	pto = new pros::ADIDigitalOut(PTO_PORT, defaultPTOSetting);
+	dynamic_cast<PTOMotor *>(driveMidLeft)->set_pto_mode(defaultPTOSetting);
+	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(defaultPTOSetting);
+	drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
 
 	indexer = new pros::Motor(INDEXER_PORT, MOTOR_GEAR_BLUE, 0, MOTOR_ENCODER_DEGREES);
 	indexer->tare_position();
@@ -221,7 +231,14 @@ void initialize()
  * the VEX Competition Switch, following either autonomous or opcontrol. When
  * the robot is enabled, this task will exit.
  */
-void disabled() {}
+void disabled()
+{
+	using namespace syndicated;
+
+	flywheelTBH->setActive(false);
+	flywheelTBH->resetTBH();
+	flywheel->brake();
+}
 
 /**
  * Runs after initialize(), and before autonomous when connected to the Field
@@ -268,45 +285,72 @@ void turnToPoint(double x, double y)
 	moveToPose({currentPose.x, currentPose.y, headingToPoint(x - currentPose.x, y - currentPose.y)});
 }
 
-double spinFlywheelToRPM(double rpm)
-{
-	using namespace syndicated;
-
-	double error = rpm;
-	double prev_error = rpm;
-	double output = 0.0;
-	double tbh = output;
-	double gain = 5.0;
-
-	do
-	{
-		double currentSpeed = flywheel->get_actual_velocity();
-		error = rpm - currentSpeed;
-		output += gain * error;
-		if (std::signbit(error) != std::signbit(prev_error))
-		{
-			output = 0.5 * (output + tbh);
-			tbh = output;
-			prev_error = error;
-		}
-		flywheel->move_voltage(output);
-		pros::screen::print(TEXT_MEDIUM, 0, "Output: %f Speed: %f Error: %f", output, currentSpeed, error);
-		pros::delay(20);
-	} while (std::abs(error) > 25.0 || std::abs(error - prev_error) > 20.0);
-
-	return output;
-}
-
 void shootDisc()
 {
 	using namespace syndicated;
 
 	indexer->move_relative(indexerTravel, indexerSpeedFar * 600.0);
+	if (flywheelTBH != nullptr) {
+		flywheelTBH->setSettled(false);
+	}
 
 	do
 	{
 		pros::delay(20);
 	} while (!indexer->is_stopped());
+}
+
+void flywheelTBHLoop(void *param)
+{
+	using namespace syndicated;
+
+	while (true)
+	{
+		if (flywheelTBH != nullptr)
+		{
+			if (flywheelTBH->isActive())
+			{
+				auto rpm = flywheel->get_actual_velocity();
+				flywheelTBH->updateTBH(rpm);
+				auto output = flywheelTBH->getOutput();
+				flywheel->move_voltage(output);
+				pros::screen::print(TEXT_MEDIUM, 0, "%f voltage input and %f rpm", output, rpm);
+			}
+			else
+			{
+				flywheel->brake();
+			}
+		}
+		pros::delay(10);
+	}
+}
+
+void waitUntilFlywheelSettled(double msecTimeout = 0)
+{
+	using namespace syndicated;
+	if (flywheelTBH == nullptr)
+	{
+		return;
+	}
+
+	bool timeoutDisabled = msecTimeout == 0;
+
+	pros::delay(166);
+
+	do
+	{
+		pros::delay(166);
+
+		if (!timeoutDisabled)
+		{
+			msecTimeout -= 20;
+		}
+
+		if (msecTimeout < 0)
+		{
+			return;
+		}
+	} while (!flywheelTBH->isSettled());
 }
 
 /**
@@ -323,15 +367,39 @@ void shootDisc()
 void autonomous()
 {
 	using namespace syndicated;
+
 	updatePTOState(true);
-	odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
 
-	turnToPoint(-2800.0, 2600.0);
+	if (autonomousSkills)
+	{
+	}
+	else if (soloAuton)
+	{
+	}
+	else if (startingOnRoller)
+	{
+	}
+	else
+	{
+		odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
 
-	flywheel->move_voltage(spinFlywheelToRPM(400.0));
-	shootDisc();
-	shootDisc();
-	shootDisc();
+		flywheelTBH = new TBHController(24.0); // todo: tune gain
+		flywheelTBH->setTarget(410.0);
+		flywheelTBH->setThresholds(5.0, 5.0);
+		flywheelTBHUpdateTask = new pros::Task(flywheelTBHLoop, nullptr, "Flywheel TBH Update");
+
+		turnToPoint(-2575.0, 2575.0);
+
+		waitUntilFlywheelSettled();
+		shootDisc();
+		waitUntilFlywheelSettled();
+		shootDisc();
+
+		flywheelTBH->setActive(false);
+		flywheelTBH->resetTBH();
+		flywheel->brake();
+	}
+
 	/* testing area */
 	{
 		/*

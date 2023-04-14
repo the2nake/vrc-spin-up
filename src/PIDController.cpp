@@ -70,9 +70,9 @@ double PIDController::updatePID(double sensorValue)
     prevError = error;
     this->previousUpdateTimestamp = std::chrono::high_resolution_clock::now();
 
-    pros::screen::print(TEXT_MEDIUM, 3, "Sensor: %f Target: %f dT: %f", sensorValue, this->target, dT);
-    pros::screen::print(TEXT_MEDIUM, 4, "E: %f I: %f D: %f", error, integral, derivative);
-    pros::screen::print(TEXT_MEDIUM, 5, "kP: %f kI: %f kD: %f", kP, kI, kD);
-    pros::screen::print(TEXT_MEDIUM, 6, "P: %f I: %f D: %f", error * kP, integral * kI, derivative * kD);
+    // pros::screen::print(TEXT_MEDIUM, 3, "Sensor: %f Target: %f dT: %f", sensorValue, this->target, dT);
+    // pros::screen::print(TEXT_MEDIUM, 4, "E: %f I: %f D: %f", error, integral, derivative);
+    // pros::screen::print(TEXT_MEDIUM, 5, "kP: %f kI: %f kD: %f", kP, kI, kD);
+    // pros::screen::print(TEXT_MEDIUM, 6, "P: %f I: %f D: %f", error * kP, integral * kI, derivative * kD);
     return (error * kP + integral * kI + derivative * kD);
 }
