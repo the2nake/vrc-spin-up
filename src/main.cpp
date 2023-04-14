@@ -383,9 +383,9 @@ void autonomous()
 	{
 		odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
 
-		flywheelTBH = new TBHController(24.0); // todo: tune gain
+		flywheelTBH = new TBHController(24.0); // TODO: tune gain
 		flywheelTBH->setTarget(410.0);
-		flywheelTBH->setThresholds(5.0, 5.0);
+		flywheelTBH->setThresholds(4.0, 5.0); // TODO: confirm maximum thresholds
 		flywheelTBHUpdateTask = new pros::Task(flywheelTBHLoop, nullptr, "Flywheel TBH Update");
 
 		turnToPoint(-2575.0, 2575.0);
