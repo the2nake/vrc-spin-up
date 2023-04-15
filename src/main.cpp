@@ -455,9 +455,9 @@ void autonomous()
 	{
 		odometry->setAbsolutePosition(-60.0, 1800.0, 270.0);
 
-		flywheelTBH = new TBHController(146.0, 13000.0); // TODO: tune gain
+		flywheelTBH = new TBHController(146.0, 13000.0);
 		flywheelTBH->setTarget(370.0);
-		flywheelTBH->setThresholds(5.0, 5.0); // TODO: confirm maximum thresholds
+		flywheelTBH->setThresholds(5.0, 5.0);
 		flywheelTBHUpdateTask = new pros::Task(flywheelTBHLoop, nullptr, "Flywheel TBH Update");
 
 		intakeOn(true);
@@ -473,7 +473,7 @@ void autonomous()
 		pros::delay(200);
 		intakeOff(true);
 
-		waitUntilFlywheelSettled(3000);
+		waitUntilFlywheelSettled(3000); // TODO: see if this can be lowered
 		pros::screen::print(TEXT_MEDIUM, 3, "%f", flywheel->get_actual_velocity());
 		shootDisc();
 		waitUntilFlywheelSettled(700);
@@ -643,31 +643,7 @@ void handleFlywheelControls()
 
 	if (controller->get_digital(flywheelKeybind) || flywheelAlwaysOn)
 	{
-		// use PID control for the flywheel, adding TBH (take back half) method
-		/**
-		 * Programmer's notes:
-		 * A PI controller (kD = 0) may be more accurate, as the flywheel's friction will fight against P and I, so there's no need for D
-		 * A derivative component is probably best for applications where it is okay to reverse in order to settle the velocity. However,
-		   spinning the flywheel in reverse would be a terrible idea.
-		*/
-		/*
-		double target = 600.0 * flywheelSpeed; // proportion of 600 rpm
-		double actualVelocity = flywheel->get_actual_velocity();
-		double error = target - actualVelocity;
-		double kP = 3.0, kI = 0.0, kD = 0.0; // TODO: tune values, try PI only before doing PID
-		syndicated::flywheelVelocityIntegral *= 0.95;
-		syndicated::flywheelVelocityIntegral += error * syndicated::trueTimeElapsed;
-		if (std::signbit(syndicated::prevFlywheelVelocityError) != std::signbit(error))
-		{
-			// take back half
-			syndicated::flywheelVelocityIntegral = 0.5 * (syndicated::flywheelVelocityIntegral + syndicated::flywheelVelocityTBH);
-			syndicated::flywheelVelocityTBH = syndicated::flywheelVelocityIntegral;
-		}
-		double derivative = (error - syndicated::prevFlywheelVelocityError) / syndicated::trueTimeElapsed;
-		double power = error * kP + syndicated::flywheelVelocityIntegral * kI + derivative * kD;
-		flywheel->move(std::min(std::max(127.0 * power / 600.0, 0.0), 127.0));
-		syndicated::prevFlywheelVelocityError = error;
-		*/
+		// TODO: implement TBH controller
 		flywheel->move_velocity(600.0 * (farShooting ? flywheelSpeedFar : flywheelSpeed));
 	}
 	else
