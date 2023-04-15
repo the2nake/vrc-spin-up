@@ -140,7 +140,7 @@ void initialize()
 
 	indexerSpeed = 0.9;
 	indexerSpeedFar = 0.75;
-	indexerTravel = 225.0;
+	indexerTravel = 240.0;
 
 	flywheelAlwaysOn = false;
 	flywheelSpeed = 0.5;
@@ -152,7 +152,7 @@ void initialize()
 	ptoMaxDriveRPM = 200.0;
 	baseMaxDriveRPM = 200.0;
 
-	drivetrainTranslationPID = {1.0 / 400.0, 0.0, 0.001, true, 0.0};
+	drivetrainTranslationPID = {1.0 / 400.0, 0.0, 0.0005, true, 0.0};
 	// NOTE: high accuracy angle turning: drivetrainAngularPID = {1.0 / 131.7, 0.0, 0.001, true};
 	drivetrainAngularPID = {1.0 / 131.5, 0.0015, 0.0005, true};
 
@@ -211,7 +211,7 @@ void initialize()
 	drivetrain->configAngularPID(drivetrainAngularPID);
 
 	ptoIsOn = defaultPTOSetting;
-	pto = new pros::ADIDigitalOut(PTO_PORT, defaultPTOSetting);
+	pto = new pros::ADIDigitalOut(PTO_PORT, !defaultPTOSetting);
 	dynamic_cast<PTOMotor *>(driveMidLeft)->set_pto_mode(defaultPTOSetting);
 	dynamic_cast<PTOMotor *>(driveMidRight)->set_pto_mode(defaultPTOSetting);
 	drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
@@ -258,7 +258,7 @@ void updatePTOState(bool state)
 	ptoIsOn = state;
 	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
 	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
-	pto->set_value(ptoIsOn);
+	pto->set_value(!ptoIsOn);
 	mr_ptr->set_pto_mode(ptoIsOn);
 	ml_ptr->set_pto_mode(ptoIsOn);
 	drivetrain->setMaxRPM(ptoIsOn ? ptoMaxDriveRPM : baseMaxDriveRPM);
@@ -277,12 +277,20 @@ void moveToPose(absolutePosition pose)
 	}
 }
 
-void turnToPoint(double x, double y)
+void turnToPoint(double x, double y, double offset = 0.0)
 {
 	using namespace syndicated;
 
 	auto currentPose = odometry->getAbsolutePosition();
-	moveToPose({currentPose.x, currentPose.y, headingToPoint(x - currentPose.x, y - currentPose.y)});
+	moveToPose({currentPose.x, currentPose.y, headingToPoint(x - currentPose.x, y - currentPose.y) + offset});
+}
+
+void turnToHeading(double heading)
+{
+	using namespace syndicated;
+
+	auto currentPose = odometry->getAbsolutePosition();
+	moveToPose({currentPose.x, currentPose.y, heading});
 }
 
 void shootDisc()
@@ -290,7 +298,8 @@ void shootDisc()
 	using namespace syndicated;
 
 	indexer->move_relative(indexerTravel, indexerSpeedFar * 600.0);
-	if (flywheelTBH != nullptr) {
+	if (flywheelTBH != nullptr)
+	{
 		flywheelTBH->setSettled(false);
 	}
 
@@ -335,15 +344,15 @@ void waitUntilFlywheelSettled(double msecTimeout = 0)
 
 	bool timeoutDisabled = msecTimeout == 0;
 
-	pros::delay(166);
+	pros::delay(150);
 
 	do
 	{
-		pros::delay(166);
+		pros::delay(150);
 
 		if (!timeoutDisabled)
 		{
-			msecTimeout -= 20;
+			msecTimeout -= 150;
 		}
 
 		if (msecTimeout < 0)
@@ -351,6 +360,69 @@ void waitUntilFlywheelSettled(double msecTimeout = 0)
 			return;
 		}
 	} while (!flywheelTBH->isSettled());
+}
+
+void intakeOn(bool moveIndexer = false)
+{
+	using namespace syndicated;
+
+	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+
+	ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+	mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+
+	if (moveIndexer)
+	{
+		indexer->move_velocity(-600.0 * intakeSpeed);
+	}
+}
+
+void outtakeOn()
+{
+
+	using namespace syndicated;
+
+	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+
+	ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+	mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+}
+
+void intakeOff(bool brakeIndexer = false)
+{
+	using namespace syndicated;
+
+	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
+	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
+
+	ml_ptr->brake_if_pto();
+	mr_ptr->brake_if_pto();
+
+	if (brakeIndexer)
+	{
+		indexer->brake();
+	}
+}
+
+void driveAndMaintainHeading(double vt, double ht, double heading)
+{
+	using namespace syndicated;
+
+	auto pose = odometry->getAbsolutePosition();
+	auto delta = findShorterTurn(pose.heading, heading, 360.0);
+	auto vr = 0.0;
+	if (delta > 1.0)
+	{
+		vr = 0.05;
+	}
+	else if (delta < -1.0)
+	{
+		vr = -0.05;
+	}
+
+	drivetrain->driveAndTurn(vt, ht, vr);
 }
 
 /**
@@ -381,23 +453,47 @@ void autonomous()
 	}
 	else
 	{
-		odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
+		odometry->setAbsolutePosition(-60.0, 1800.0, 270.0);
 
-		flywheelTBH = new TBHController(24.0); // TODO: tune gain
-		flywheelTBH->setTarget(410.0);
-		flywheelTBH->setThresholds(4.0, 5.0); // TODO: confirm maximum thresholds
+		flywheelTBH = new TBHController(146.0, 13000.0); // TODO: tune gain
+		flywheelTBH->setTarget(370.0);
+		flywheelTBH->setThresholds(5.0, 5.0); // TODO: confirm maximum thresholds
 		flywheelTBHUpdateTask = new pros::Task(flywheelTBHLoop, nullptr, "Flywheel TBH Update");
 
-		turnToPoint(-2575.0, 2575.0);
+		intakeOn(true);
 
-		waitUntilFlywheelSettled();
+		for (int i = 0; i < 90; i++)
+		{
+			driveAndMaintainHeading(0.60, 277.5, 270.0);
+			pros::delay(10);
+		}
+		drivetrain->brake();
+		pros::delay(200);
+		turnToPoint(-2700.0, 2700.0, -3.5);
+		pros::delay(200);
+		intakeOff(true);
+
+		waitUntilFlywheelSettled(3000);
+		pros::screen::print(TEXT_MEDIUM, 3, "%f", flywheel->get_actual_velocity());
 		shootDisc();
-		waitUntilFlywheelSettled();
+		waitUntilFlywheelSettled(700);
+		pros::screen::print(TEXT_MEDIUM, 4, "%f", flywheel->get_actual_velocity());
+		shootDisc();
+		waitUntilFlywheelSettled(400);
+		pros::screen::print(TEXT_MEDIUM, 5, "%f", flywheel->get_actual_velocity());
 		shootDisc();
 
-		flywheelTBH->setActive(false);
-		flywheelTBH->resetTBH();
-		flywheel->brake();
+		pros::delay(100);
+		moveToPose({-160.0, 2400.0, 270.0});
+		driveAndMaintainHeading(0.1, 90.0, 270.0);
+		pros::delay(800);
+		indexer->move_relative(220.0, 300.0);
+		pros::delay(200);
+		driveAndMaintainHeading(0.1, 270.0, 270.0);
+		pros::delay(750);
+		drivetrain->brake();
+		disabled();
+
 	}
 
 	/* testing area */
@@ -490,24 +586,18 @@ void handleIntakeControls()
 {
 	using namespace syndicated;
 
-	PTOMotor *ml_ptr = dynamic_cast<PTOMotor *>(driveMidLeft);
-	PTOMotor *mr_ptr = dynamic_cast<PTOMotor *>(driveMidRight);
-
 	if (controller->get_digital(intakeKeybind))
 	{
-		ml_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
-		mr_ptr->move_velocity_if_pto(200.0 * intakeSpeed);
+		intakeOn();
 	}
 	else if (controller->get_digital(outtakeKeybind))
 	{
-		ml_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
-		mr_ptr->move_velocity_if_pto(-200.0 * intakeSpeed);
+		outtakeOn();
 	}
 	else
 	{
 		// brake the motor only if the drivetrain is not controlling the motor
-		ml_ptr->brake_if_pto();
-		mr_ptr->brake_if_pto();
+		intakeOff();
 	}
 }
 

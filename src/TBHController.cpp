@@ -2,10 +2,11 @@
 
 #include "utility-functions.hpp"
 
-TBHController::TBHController(double gain)
+TBHController::TBHController(double gain, double maximum)
 {
     this->lastUpdate = std::chrono::high_resolution_clock::now();
     this->gain = gain;
+    this->maximum = maximum;
 }
 
 void TBHController::setThresholds(double acc, double stab)
@@ -33,6 +34,10 @@ void TBHController::updateTBH(double sensor)
     }
 
     this->output = this->output + (this->gain * error) * dT;
+    if (this->maximum > 0.0 && std::abs(this->output) > this->maximum) {
+        this->output = (std::signbit(this->output) ? -1 : 1) * this->maximum;
+    }
+
     if (std::signbit(error) != std::signbit(this->prevError))
     {
         this->output = 0.5 * (this->output + this->tbh);

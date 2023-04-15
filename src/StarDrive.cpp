@@ -297,7 +297,7 @@ void StarDrive::moveFollowingMotionProfile()
     // NOTE: for drivetrains, integral may not be necessary if the inertia of the robot is sufficient
 
     // if settled
-    if (std::abs(translationVector.rho) < 3 && std::abs(degreesToTurn) < 1)
+    if (std::abs(translationVector.rho) < 7.0 && std::abs(degreesToTurn) < 1.5)
     {
         PIDActive = false;
         if (translationalVelocityController != nullptr)
