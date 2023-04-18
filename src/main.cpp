@@ -87,8 +87,8 @@ namespace syndicated
 	bool farShooting;
 	bool shooting;
 
-	TBHController *flywheelTBH;
-	pros::Task *flywheelTBHUpdateTask;
+	TBHController *flywheelController;
+	pros::Task *flywheelControlUpdateTask;
 
 	pros::controller_digital_e_t flywheelKeybind;
 	pros::controller_digital_e_t shootKeybind;
@@ -128,7 +128,7 @@ void initialize()
 	 */
 
 	autonomousSkills = false;
-	startingOnRoller = false;
+	startingOnRoller = true;
 	soloAuton = false;
 
 	double defaultPTOSetting = true;
@@ -171,8 +171,8 @@ void initialize()
 	flywheel->set_encoder_units(MOTOR_ENCODER_ROTATIONS);
 	flywheel->set_brake_mode(MOTOR_BRAKE_COAST); // Important!
 	flywheel->set_gearing(MOTOR_GEAR_600);
-	flywheelTBH = nullptr;
-	flywheelTBHUpdateTask = nullptr;
+	flywheelController = nullptr;
+	flywheelControlUpdateTask = nullptr;
 
 	flywheelVelocityTBH = 0;
 	flywheelVelocityIntegral = 0;
@@ -235,8 +235,8 @@ void disabled()
 {
 	using namespace syndicated;
 
-	flywheelTBH->setActive(false);
-	flywheelTBH->resetTBH();
+	flywheelController->setActive(false);
+	flywheelController->resetTBH();
 	flywheel->brake();
 }
 
@@ -298,9 +298,9 @@ void shootDisc()
 	using namespace syndicated;
 
 	indexer->move_relative(indexerTravel, indexerSpeedFar * 600.0);
-	if (flywheelTBH != nullptr)
+	if (flywheelController != nullptr)
 	{
-		flywheelTBH->setSettled(false);
+		flywheelController->setSettled(false);
 	}
 
 	do
@@ -309,19 +309,19 @@ void shootDisc()
 	} while (!indexer->is_stopped());
 }
 
-void flywheelTBHLoop(void *param)
+void flywheelControlLoop(void *param)
 {
 	using namespace syndicated;
 
 	while (true)
 	{
-		if (flywheelTBH != nullptr)
+		if (flywheelController != nullptr)
 		{
-			if (flywheelTBH->isActive())
+			if (flywheelController->isActive())
 			{
 				auto rpm = flywheel->get_actual_velocity();
-				flywheelTBH->updateTBH(rpm);
-				auto output = flywheelTBH->getOutput();
+				flywheelController->updateTBH(rpm);
+				auto output = flywheelController->getOutput();
 				flywheel->move_voltage(output);
 				pros::screen::print(TEXT_MEDIUM, 0, "%f voltage input and %f rpm", output, rpm);
 			}
@@ -337,7 +337,7 @@ void flywheelTBHLoop(void *param)
 void waitUntilFlywheelSettled(double msecTimeout = 0)
 {
 	using namespace syndicated;
-	if (flywheelTBH == nullptr)
+	if (flywheelController == nullptr)
 	{
 		return;
 	}
@@ -359,7 +359,7 @@ void waitUntilFlywheelSettled(double msecTimeout = 0)
 		{
 			return;
 		}
-	} while (!flywheelTBH->isSettled());
+	} while (!flywheelController->isSettled());
 }
 
 void intakeOn(bool moveIndexer = false)
@@ -425,6 +425,18 @@ void driveAndMaintainHeading(double vt, double ht, double heading)
 	drivetrain->driveAndTurn(vt, ht, vr);
 }
 
+void doRoller()
+{
+	using namespace syndicated;
+
+	driveAndMaintainHeading(0.1, 90.0, 270.0);
+	pros::delay(400);
+	indexer->move_relative(220.0, 300.0);
+	pros::delay(200);
+	driveAndMaintainHeading(0.3, 270.0, 270.0);
+	pros::delay(500);
+}
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -450,26 +462,27 @@ void autonomous()
 	}
 	else if (startingOnRoller)
 	{
+		odometry->setAbsolutePosition(-2400.0, 0.0, 0.0);
 	}
 	else
 	{
-		odometry->setAbsolutePosition(-60.0, 1800.0, 270.0);
+		odometry->setAbsolutePosition(0.0, 1800.0, 270.0);
 
-		flywheelTBH = new TBHController(146.0, 13000.0);
-		flywheelTBH->setTarget(370.0);
-		flywheelTBH->setThresholds(5.0, 5.0);
-		flywheelTBHUpdateTask = new pros::Task(flywheelTBHLoop, nullptr, "Flywheel TBH Update");
+		flywheelController = new TBHController(30.0, 0.0);
+		flywheelController->setTarget(370.0);
+		flywheelController->setThresholds(5.0, 5.0);
+		flywheelControlUpdateTask = new pros::Task(flywheelControlLoop, nullptr, "Flywheel Velocity Update");
 
 		intakeOn(true);
 
-		for (int i = 0; i < 90; i++)
+		for (int i = 0; i < 110; i++)
 		{
 			driveAndMaintainHeading(0.60, 277.5, 270.0);
 			pros::delay(10);
 		}
 		drivetrain->brake();
 		pros::delay(200);
-		turnToPoint(-2700.0, 2700.0, -3.5);
+		turnToPoint(-2700.0, 2700.0, -2.5);
 		pros::delay(200);
 		intakeOff(true);
 
@@ -482,104 +495,95 @@ void autonomous()
 		waitUntilFlywheelSettled(400);
 		pros::screen::print(TEXT_MEDIUM, 5, "%f", flywheel->get_actual_velocity());
 		shootDisc();
+		shootDisc();
 
-		pros::delay(100);
-		moveToPose({-160.0, 2400.0, 270.0});
-		driveAndMaintainHeading(0.1, 90.0, 270.0);
-		pros::delay(800);
-		indexer->move_relative(220.0, 300.0);
-		pros::delay(200);
-		driveAndMaintainHeading(0.1, 270.0, 270.0);
-		pros::delay(750);
+		moveToPose({-100.0, 2400.0, 270.0});
+		doRoller();
+
+		pros::delay(50);
 		drivetrain->brake();
 		disabled();
-
 	}
 
 	/* testing area */
-	{
-		/*
-		drivetrain->initiateMotionTo({0.0, 0.0, 90.0});
+	/*
+	drivetrain->initiateMotionTo({0.0, 0.0, 90.0});
 
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-		*/
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
 	}
+	*/
 
 	/* demo route */
+	/*
+	drivetrain->initiateMotionTo({400.0, 400.0, 90.0});
+
+	while (drivetrain->isPIDActive())
 	{
-		/*
-		drivetrain->initiateMotionTo({400.0, 400.0, 90.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({0.0, 800.0, 180.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({-400.0, 400.0, 270.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({0.0, 0.0, 0.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}*/
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
 	}
+
+	drivetrain->initiateMotionTo({0.0, 800.0, 180.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+
+	drivetrain->initiateMotionTo({-400.0, 400.0, 270.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+
+	drivetrain->initiateMotionTo({0.0, 0.0, 0.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}*/
+
 	/* demo route 2 */
+	/*
+	drivetrain->initiateMotionTo({1200.0, 2000.0, 0.0});
+
+	while (drivetrain->isPIDActive())
 	{
-		/*
-		drivetrain->initiateMotionTo({1200.0, 2000.0, 0.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({400.0, 2000.0, 0.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({0.0, 1200.0, 90.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-
-		drivetrain->initiateMotionTo({4800.0, 1200.0, 90.0});
-
-		while (drivetrain->isPIDActive())
-		{
-			drivetrain->moveFollowingMotionProfile();
-			pros::delay(10);
-		}
-		*/
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
 	}
+
+	drivetrain->initiateMotionTo({400.0, 2000.0, 0.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+
+	drivetrain->initiateMotionTo({0.0, 1200.0, 90.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+
+	drivetrain->initiateMotionTo({4800.0, 1200.0, 90.0});
+
+	while (drivetrain->isPIDActive())
+	{
+		drivetrain->moveFollowingMotionProfile();
+		pros::delay(10);
+	}
+	*/
 }
 
 void handleIntakeControls()
