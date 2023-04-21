@@ -10,7 +10,7 @@
 
 class StarDrive : public XDrive {
 public:
-    StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Motor *midRight, pros::Motor *backRight, pros::Motor*backLeft, pros::Motor *midLeft, APS* odometry);
+    StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Motor *midRight, pros::Motor *backRight, pros::Motor*backLeft, pros::Motor *midLeft, APS* aps);
 
     void drive(double translationVelocity, double translationHeading) override;
 
@@ -52,7 +52,7 @@ private:
     pros::Motor *backLeft = nullptr;
     pros::Motor *midLeft = nullptr;
 
-    APS* odometry = nullptr;
+    APS* aps = nullptr;
     
     double maxRPM = 600.0;
     std::vector<double> outputRPMs = {200.0, 200.0, 200.0, 200.0, 200.0, 200.0}; // modifiers representing external gearing

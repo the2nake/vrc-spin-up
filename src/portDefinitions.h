@@ -16,7 +16,9 @@
 #define DRIVE_BL_PORT 5
 #define DRIVE_ML_PORT 6
 
+#define DOINKER_PORT 'E'
 #define PTO_PORT 'G'
+#define EXPANSION_PORT 'H'
 
 #define IMU_PORT 12
 

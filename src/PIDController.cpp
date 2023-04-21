@@ -13,6 +13,7 @@ PIDController::PIDController(PIDConfig config)
 }
 
 void PIDController::setPIDConstants(PIDConfig config) {
+    this->fF = config.fF;
     this->kP = config.kP;
     this->kI = config.kI;
     this->kD = config.kD;
@@ -20,8 +21,9 @@ void PIDController::setPIDConstants(PIDConfig config) {
     this->integralCutThreshold = config.integralCutThreshold;
 }
 
-void PIDController::setPIDConstants(double kP, double kI, double kD, bool cutIntegral, double integralCutThreshold)
+void PIDController::setPIDConstants(double fF, double kP, double kI, double kD, bool cutIntegral, double integralCutThreshold)
 {
+    this->fF = fF;
     this->kP = kP;
     this->kI = kI;
     this->kD = kD;
@@ -74,5 +76,5 @@ double PIDController::updatePID(double sensorValue)
     // pros::screen::print(TEXT_MEDIUM, 4, "E: %f I: %f D: %f", error, integral, derivative);
     // pros::screen::print(TEXT_MEDIUM, 5, "kP: %f kI: %f kD: %f", kP, kI, kD);
     // pros::screen::print(TEXT_MEDIUM, 6, "P: %f I: %f D: %f", error * kP, integral * kI, derivative * kD);
-    return (error * kP + integral * kI + derivative * kD);
+    return (this->fF + error * kP + integral * kI + derivative * kD);
 }

@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-StarDrive::StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Motor *midRight, pros::Motor *backRight, pros::Motor *backLeft, pros::Motor *midLeft, APS *odometry)
+StarDrive::StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Motor *midRight, pros::Motor *backRight, pros::Motor *backLeft, pros::Motor *midLeft, APS *aps)
 {
     // motors should be set up so that fwd moves the robot in the fwd direction
 
@@ -16,7 +16,7 @@ StarDrive::StarDrive(pros::Motor *frontLeft, pros::Motor *frontRight, pros::Moto
     this->backLeft = backLeft;
     this->midLeft = midLeft;
 
-    this->odometry = odometry;
+    this->aps = aps;
 }
 
 void StarDrive::drive(double translationVelocity, double translationHeading)
@@ -26,7 +26,7 @@ void StarDrive::drive(double translationVelocity, double translationHeading)
 
 void StarDrive::driveAndMaintainHeading(double translationVelocity, double translationHeading, double rotationHeading, double threshold)
 {
-    double currentHeading = this->odometry->getAbsolutePosition().heading;
+    double currentHeading = this->aps->getAbsolutePosition().heading;
     // sanitse data
     currentHeading = findMod(currentHeading, 360.0);
     rotationHeading = findMod(rotationHeading, 360.0);
@@ -77,7 +77,7 @@ void StarDrive::driveAndTurn(double translationVelocity, double translationHeadi
     {
         theta = findMod(translationHeading, 360);
     }
-    theta = findMod(theta - this->odometry->getAbsolutePosition().heading, 360);
+    theta = findMod(theta - this->aps->getAbsolutePosition().heading, 360);
 
     auto translateScale = translationSpeed * translationSpeed / (translationSpeed + rotationSpeed);
     auto rotationScale = rotationSpeed * rotationSpeed / (translationSpeed + rotationSpeed);
@@ -267,7 +267,7 @@ void StarDrive::moveFollowingMotionProfile()
     }
 
     // get the current position
-    auto currentPose = this->odometry->getAbsolutePosition();
+    auto currentPose = this->aps->getAbsolutePosition();
     auto dX = this->targetPose.x - currentPose.x;
     auto dY = this->targetPose.y - currentPose.y;
     auto translationVector = polarFromCartesian(dX, dY);
