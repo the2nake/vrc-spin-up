@@ -297,7 +297,7 @@ void StarDrive::moveFollowingMotionProfile()
     // NOTE: for drivetrains, integral may not be necessary if the inertia of the robot is sufficient
 
     // if settled
-    if (std::abs(translationVector.rho) < 7.0 && std::abs(degreesToTurn) < 1.5)
+    if (std::abs(translationVector.rho) < 6.0 && std::abs(degreesToTurn) < 1.5)
     {
         PIDActive = false;
         if (translationalVelocityController != nullptr)
@@ -317,7 +317,7 @@ void StarDrive::moveFollowingMotionProfile()
     }
 
     // move if not there yet
-    this->driveAndTurn(translationVelocity, translationHeading, angularVelocity);
+    this->driveAndTurn(translationVelocity * (1 - std::abs(angularVelocity)), translationHeading, angularVelocity);
 }
 
 void StarDrive::haltPIDMotion()
