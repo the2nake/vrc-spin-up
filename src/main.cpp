@@ -22,6 +22,13 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <vector>
+
+namespace graphing
+{
+	std::vector<double> flywheelVelocities;
+	std::vector<double> flywheelPIDOutputs;
+};
 
 /**
  * A convenient place to store all variables and motor access points
@@ -78,10 +85,12 @@ namespace syndicated
 
 	double indexerSpeed;
 	double indexerSpeedClose;
+	double tripleShotSpeed;
 	double indexerTravel;
 
 	bool shootingCloseRange;
 	bool shooting;
+	bool tripleShooting;
 
 	PIDController *flywheelController;
 	pros::Task *flywheelControlUpdateTask;
@@ -96,7 +105,7 @@ namespace syndicated
 	pros::controller_digital_e_t intakeKeybind;
 	pros::controller_digital_e_t outtakeKeybind;
 	pros::controller_digital_e_t expandKeybind;
-	pros::controller_digital_e_t threeShotKeybind;
+	pros::controller_digital_e_t tripleShotKeybind;
 
 	pros::controller_digital_e_t rangeToggleKeybind;
 	pros::controller_digital_e_t flywheelToggleKeybind;
@@ -120,25 +129,35 @@ void flywheelControlLoop(void *param)
 {
 	using namespace syndicated;
 
+	double rpm = 0.0, output = 0.0;
+
 	while (true)
 	{
-		if (flywheelController != nullptr)
+		if (flywheel != nullptr)
 		{
-			if (flywheelController->isActive())
+			rpm = flywheel->get_actual_velocity();
+			if (flywheelController != nullptr)
 			{
-				auto rpm = flywheel->get_actual_velocity();
-				auto output = flywheelController->updatePID(rpm);
-				flywheel->move_voltage(output);
-				pros::screen::print(TEXT_MEDIUM, 9, "%f voltage input", output);
-				pros::screen::print(TEXT_MEDIUM, 10, "%f rpm", rpm);
-			}
-			else
-			{
-				flywheel->brake();
+				if (flywheelController->isActive())
+				{
+					flywheelController->updatePID(rpm);
+					output = flywheelController->getOutput();
+					flywheel->move_voltage(output);
+					// pros::screen::print(TEXT_MEDIUM, 9, "Flywheel %f voltage input", output);
+					// pros::screen::print(TEXT_MEDIUM, 10, "Flywheel %f rpm", rpm);
+				}
+				else
+				{
+					flywheel->brake();
+				}
 			}
 		}
 		pros::delay(10);
 	}
+}
+
+void selectorTouchCallback()
+{
 }
 
 /**
@@ -164,17 +183,18 @@ void initialize()
 	double defaultPTOSetting = true;
 
 	APSUpdateFrequency = 100;
-	targetCycleTime = 10;
+	targetCycleTime = 20;
 
 	imuMult = 360.0 / 362;
 
 	indexerSpeed = 0.9;
 	indexerSpeedClose = 0.75;
-	indexerTravel = 240.0;
+	tripleShotSpeed = 0.25;
+	indexerTravel = 250.0;
 
 	flywheelAlwaysOn = false;
 	flywheelSpeed = 0.5;
-	flywheelSpeedClose = 0.4;
+	flywheelSpeedClose = 0.45;
 
 	intakeSpeed = 1.0;
 
@@ -188,16 +208,16 @@ void initialize()
 	// TODO: tune flywheel constants
 	// NOTE: it is likely that only feedforward should be different between different RPMs
 	// NOTE: feedforward for nomnial and close is correct, tune proportionals
-	closeSideFlywheelPID = {8750.0, 100.0, 0.0, 0.0, true, 0.0};
-	farSideFlywheelPID = {8750.0, 100.0, 0.0, 0.0, true, 0.0};
-	nominalFlywheelPID = {7000.0, 000.0, 0.0, 0.0, true, 0.0};
-	closeRangeFlywheelPID = {5500.0, 000.0, 0.0, 0.0, true, 0.0}; 
+	closeSideFlywheelPID = {9500.0, 1000.0, 0.0, 0.0, true, 0.0};
+	farSideFlywheelPID = {9500.0, 1000.0, 0.0, 0.0, true, 0.0};
+	nominalFlywheelPID = {7000.0, 0.0, 1000.0, 0.0, true, 0.0};
+	closeRangeFlywheelPID = {6650.0, 0.0, 1000.0, 0.0, true, 0.0};
 
 	shootKeybind = DIGITAL_L1;
 	flywheelKeybind = DIGITAL_L2;
 	outtakeKeybind = DIGITAL_R1;
 	intakeKeybind = DIGITAL_R2;
-	threeShotKeybind = DIGITAL_X;
+	tripleShotKeybind = DIGITAL_X;
 	expandKeybind = DIGITAL_RIGHT;
 
 	rangeToggleKeybind = DIGITAL_A;
@@ -215,6 +235,7 @@ void initialize()
 	flywheelController = new PIDController(nominalFlywheelPID);
 	flywheelControlUpdateTask = new pros::Task(flywheelControlLoop, nullptr, "Flywheel Velocity Update");
 	flywheelControlUpdateTask = nullptr;
+	tripleShooting = false;
 
 	trueTimeElapsed = targetCycleTime;
 
@@ -263,7 +284,88 @@ void initialize()
 
 	expansion = new pros::ADIDigitalOut(EXPANSION_PORT, false);
 
-	pros::delay(500);
+	bool selecting = true;
+	while (selecting)
+	{
+		pros::screen::erase();
+		auto status = pros::screen::touch_status();
+
+		if (status.touch_status == TOUCH_PRESSED)
+		{
+			if (status.x < 240)
+			{
+				if (status.y < 80)
+				{
+					autonomousSkills = !autonomousSkills;
+				}
+				else if (status.y > 160)
+				{
+					soloAuton = !soloAuton;
+				}
+				else
+				{
+					startingOnRoller = !startingOnRoller;
+				}
+			}
+			else
+			{
+				selecting = false;
+				pros::screen::set_pen(COLOR_PALE_VIOLET_RED);
+				pros::screen::fill_rect(240, 0, 480, 240);
+				pros::screen::set_pen(COLOR_WHITE);
+				pros::screen::print(TEXT_MEDIUM, 320, 100, "Confirm?");
+			}
+			pros::delay(200);
+		}
+
+		if (autonomousSkills)
+		{
+			pros::screen::set_pen(COLOR_PALE_TURQUOISE);
+			pros::screen::fill_rect(0, 0, 240, 80);
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 0, "Autonomous Skills", autonomousSkills);
+		}
+		else
+		{
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 0, "Match Autonomous", autonomousSkills);
+		}
+		if (soloAuton)
+		{
+			pros::screen::set_pen(COLOR_PALE_TURQUOISE);
+			pros::screen::fill_rect(0, 160, 240, 240);
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 10, "Solo Autonomous", soloAuton);
+		}
+		else
+		{
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 10, "Co-op Autonomous", soloAuton);
+		}
+		if (startingOnRoller)
+		{
+			pros::screen::set_pen(COLOR_PALE_TURQUOISE);
+			pros::screen::fill_rect(0, 80, 240, 160);
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 5, "Close Side Autonomous", startingOnRoller);
+		}
+		else
+		{
+			pros::screen::set_pen(COLOR_WHITE);
+			pros::screen::print(TEXT_MEDIUM, 5, "Far Side Autonomous", startingOnRoller);
+		}
+
+		pros::screen::print(TEXT_MEDIUM, 320, 100, "Confirm?");
+
+		if (controller != nullptr && controller->get_digital_new_press(DIGITAL_X)) {
+			selecting = false;
+		}
+
+		pros::delay(50);
+	}
+
+	pros::screen::erase();
+	pros::screen::set_pen(COLOR_WHITE);
 }
 
 /**
@@ -445,7 +547,7 @@ void doRoller()
 	auto pose = aps->getAbsolutePosition();
 	drivetrain->drive(0.1, findMod(pose.heading - 180.0, 360.0));
 	pros::delay(400);
-	indexer->move_relative(-650.0, 300.0);
+	indexer->move_relative(-725.0, 300.0);
 	while (!indexer->is_stopped())
 	{
 		pros::delay(10);
@@ -508,7 +610,7 @@ void autonomous()
 
 		for (i = 0; i < 2; i++)
 		{
-			pros::delay(500);
+			pros::delay(1000);
 			pros::screen::print(TEXT_MEDIUM, 2 + i, "%f", flywheel->get_actual_velocity());
 			shootDisc();
 		}
@@ -519,7 +621,7 @@ void autonomous()
 		aps->setAbsolutePosition(0.0, 1800.0, 270.0);
 
 		flywheelController = new PIDController(farSideFlywheelPID);
-		flywheelController->startPID(370.0);
+		flywheelController->startPID(450.0);
 		flywheelControlUpdateTask = new pros::Task(flywheelControlLoop, nullptr, "Flywheel Velocity Update");
 
 		intakeOn(true);
@@ -659,14 +761,33 @@ void handleIndexerControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital_new_press(shootKeybind)) // should be get_digital_new_press
+	if (controller->get_digital_new_press(tripleShotKeybind) && std::abs(flywheel->get_actual_velocity()) > 150.0)
+	{
+		tripleShooting = true;
+		indexer->move_relative(indexerTravel * 6.0, tripleShotSpeed * 600.0);
+		pros::delay(100);
+	}
+
+	if (tripleShooting)
+	{
+		if (std::abs(indexer->get_target_position() - indexer->get_position()) < 10.0)
+		{
+			tripleShooting = false;
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	if (controller->get_digital_new_press(shootKeybind))
 	{
 		double indexerRPM = (shootingCloseRange ? indexerSpeedClose : indexerSpeed) * rpmFromGearset(indexer->get_gearing());
-		indexer->move_absolute((shooting ? indexer->get_target_position() : indexer->get_position()) + indexerTravel, indexerRPM);
+		indexer->move_absolute((shooting ? indexer->get_target_position() + indexerTravel * 1.1 : indexer->get_position() + indexerTravel), indexerRPM);
 		shooting = true;
 	}
 
-	if (std::abs(flywheel->get_actual_velocity()) < 100.0)
+	if (std::abs(flywheel->get_actual_velocity()) < 150.0)
 	{
 		shooting = false;
 	}
@@ -695,7 +816,7 @@ void handleFlywheelControls()
 		flywheelAlwaysOn = !flywheelAlwaysOn;
 	}
 
-	if (controller->get_digital(flywheelKeybind) || flywheelAlwaysOn)
+	if (flywheelAlwaysOn || tripleShooting || controller->get_digital(flywheelKeybind))
 	{
 		auto rpm = 600.0 * (shootingCloseRange ? flywheelSpeedClose : flywheelSpeed);
 		// flywheel->move_velocity(600.0 * (shootingCloseRange ? flywheelSpeedClose : flywheelSpeed));
@@ -750,7 +871,8 @@ void handleExpansionControls()
 {
 	using namespace syndicated;
 
-	if (controller->get_digital(expandKeybind)) {
+	if (controller->get_digital(expandKeybind))
+	{
 		expansion->set_value(true);
 	}
 }
@@ -819,6 +941,50 @@ void opcontrol()
 			{
 				pros::screen::draw_circle(p.first, p.second, 1);
 			}
+			pros::screen::set_pen(COLOR_WHITE);
+		}
+
+		{
+			// flywheel graph configurator
+			double x1 = 50.0, y1 = 180;
+			double x2 = 250.0, y2 = 230.0;
+			double yZeroLevel = 230.0;
+			double voltageScale = 50.0 / 11000.0;
+			double rpmScale = 50.0 / 600.0;
+			double maxSize = 200.0;
+
+			// graph the flywheel output, target, and rpm
+			pros::screen::erase_rect(x1, y1, x2, y2);
+
+			graphing::flywheelPIDOutputs.insert(graphing::flywheelPIDOutputs.begin(), flywheelController->getOutput());
+			if (graphing::flywheelPIDOutputs.size() > maxSize)
+			{
+				graphing::flywheelPIDOutputs.pop_back();
+			}
+
+			graphing::flywheelVelocities.insert(graphing::flywheelVelocities.begin(), flywheel->get_actual_velocity());
+			if (graphing::flywheelVelocities.size() > maxSize)
+			{
+				graphing::flywheelVelocities.pop_back();
+			}
+
+			if (graphing::flywheelPIDOutputs.size() == graphing::flywheelVelocities.size() && graphing::flywheelVelocities.size() >= 2.0)
+			{
+				for (int i = 0; i < graphing::flywheelPIDOutputs.size() - 1; i++)
+				{
+					pros::screen::set_pen(COLOR_MISTY_ROSE);
+					pros::screen::draw_line(x1 + i, yZeroLevel - graphing::flywheelPIDOutputs[i] * voltageScale, x1 + i + 1, yZeroLevel - graphing::flywheelPIDOutputs[i + 1] * voltageScale);
+					pros::screen::set_pen(COLOR_PALE_GREEN);
+					pros::screen::draw_line(x1 + i, yZeroLevel - graphing::flywheelVelocities[i] * rpmScale, x1 + i + 1, yZeroLevel - graphing::flywheelVelocities[i + 1] * rpmScale);
+				}
+			}
+
+			auto target = flywheelController->getTarget();
+			pros::screen::set_pen(COLOR_VIOLET);
+			pros::screen::draw_line(x1, yZeroLevel - rpmScale * target, x2, yZeroLevel - rpmScale * target);
+
+			pros::screen::set_pen(COLOR_CORNFLOWER_BLUE);
+			pros::screen::draw_rect(x1, y1, x2, y2);
 			pros::screen::set_pen(COLOR_WHITE);
 		}
 

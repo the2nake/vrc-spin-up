@@ -1,8 +1,10 @@
 #pragma once
 
 #include <chrono>
+#include <atomic>
 
-struct PIDConfig {
+struct PIDConfig
+{
     double fF;
     double kP;
     double kI;
@@ -11,7 +13,8 @@ struct PIDConfig {
     double integralCutThreshold = 0.0;
 };
 
-class PIDController {
+class PIDController
+{
 public:
     PIDController(PIDConfig config);
 
@@ -21,20 +24,24 @@ public:
     void startPID(double target);
     void setTarget(double target);
     void resetPIDSystem();
-    double updatePID(double sensorValue);
+    void updatePID(double sensorValue);
+    double getOutput() { return this->output.load(); }
 
-    bool isActive() { return this->active; };
-    
+    bool isActive() { return this->active.load(); }
+    double getTarget() { return this->target.load(); }
+
 private:
-    bool active = false;
+    std::atomic<bool> active = false;
 
-    double target = 0.0;
+    std::atomic<double> target = 0.0;
 
     std::chrono::high_resolution_clock::time_point previousUpdateTimestamp;
     double fF = 0.0, kP = 0.0, kI = 0.0, kD = 0.0;
     double prevError = 0.0;
     double integral = 0.0;
     double derivative = 0.0;
+
+    std::atomic<double> output = 0.0;
 
     bool cutIntegral = false;
     double integralCutThreshold;

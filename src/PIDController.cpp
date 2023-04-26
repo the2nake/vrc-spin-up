@@ -51,16 +51,18 @@ void PIDController::setTarget(double target) {
     this->target = target;
 }
 
-double PIDController::updatePID(double sensorValue)
+void PIDController::updatePID(double sensorValue)
 {
-    if (!this->active)
+    if (!(this->active.load()))
     {
-        return 0.0;
+        this->output = 0.0;
+        return;
     }
+
     auto now = std::chrono::high_resolution_clock::now();
     auto dT = timeBetween<std::chrono::milliseconds>(previousUpdateTimestamp, now) / 1000.0;
 
-    double error = this->target - sensorValue;
+    double error = this->target.load() - sensorValue;
 
     this->integral += error * dT;
     if (cutIntegral && (std::abs(error) <= this->integralCutThreshold || (std::signbit(error) != std::signbit(prevError))))
@@ -72,9 +74,9 @@ double PIDController::updatePID(double sensorValue)
     prevError = error;
     this->previousUpdateTimestamp = std::chrono::high_resolution_clock::now();
 
-    // pros::screen::print(TEXT_MEDIUM, 3, "Sensor: %f Target: %f dT: %f", sensorValue, this->target, dT);
+    // pros::screen::print(TEXT_MEDIUM, 3, "Sensor: %f Target: %f dT: %f", sensorValue, this->target.load(), dT);
     // pros::screen::print(TEXT_MEDIUM, 4, "E: %f I: %f D: %f", error, integral, derivative);
     // pros::screen::print(TEXT_MEDIUM, 5, "kP: %f kI: %f kD: %f", kP, kI, kD);
     // pros::screen::print(TEXT_MEDIUM, 6, "P: %f I: %f D: %f", error * kP, integral * kI, derivative * kD);
-    return (this->fF + error * kP + integral * kI + derivative * kD);
+    this->output = (this->fF + error * kP + integral * kI + derivative * kD);
 }
